@@ -126,11 +126,15 @@ button:active { transform: scale(0.95); }
   <button id="new-track">Save &amp; New</button>
   <button id="view-map">Full Map</button>
   <button id="load-btn" type="button">Load</button>
+  <button id="new-nosave" type="button">New</button>
+  <button id="export-btn" type="button">Export</button>
 </div>
 
 <div id="load-modal" class="modal" style="z-index:300;">
   <div class="modal-content" style="max-height:80vh;overflow-y:auto;">
     <h3>Load saved track</h3>
+    <button id="import-btn" type="button" style="width:100%;padding:10px;margin-bottom:6px;">📥 Import file</button>
+    <input id="import-file" type="file" accept=".json,application/json" style="display:none">
     <div id="load-list"></div>
     <div style="margin-top:10px; display:flex; justify-content:flex-end;">
       <button id="load-cancel" type="button">Cancel</button>
@@ -1715,9 +1719,20 @@ function openLoad() {
   else list.innerHTML = saved.map((t, i) => ({t, i})).reverse().map(({t, i}) => {
     const d = new Date(t.t), fl = (t.legs || []).reduce((n, l) => n + Math.max(0, (l.flags || []).length - (l.flags && l.flags[0] && l.flags[0].isStart ? 1 : 0)), 0);
     const when = d.toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'}) + ' ' + d.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
-    return `<button type="button" class="load-item" data-i="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;padding:10px;">TD${t.level} · ${(t.legs || []).length} legs · ${fl * FLAG_M}m<br><small>${when}${t.trackDone ? ' · finished' : ''}</small></button>`;
+    return `<div style="display:flex;gap:6px;margin:4px 0;"><button type="button" class="load-item" data-i="${i}" style="flex:1;text-align:left;padding:10px;">TD${t.level} · ${(t.legs || []).length} legs · ${fl * FLAG_M}m<br><small>${when}${t.trackDone ? ' · finished' : ''}</small></button><button type="button" class="load-exp" data-i="${i}" style="padding:10px;">📤</button><button type="button" class="load-del" data-i="${i}" style="background:#f44336;color:#fff;padding:10px;">🗑</button></div>`;
   }).join('');
   list.querySelectorAll('.load-item').forEach(b => b.onclick = () => loadSaved(+b.dataset.i));
+  list.querySelectorAll('.load-exp').forEach(b => b.onclick = () => {
+    const sv = JSON.parse(localStorage.getItem('tracking-saved') || '[]');
+    if (sv[+b.dataset.i]) exportTrack(sv[+b.dataset.i]);
+  });
+  list.querySelectorAll('.load-del').forEach(b => b.onclick = () => {
+    if (!confirm('Delete this saved track? This cannot be undone.')) return;
+    const sv = JSON.parse(localStorage.getItem('tracking-saved') || '[]');
+    sv.splice(+b.dataset.i, 1);
+    localStorage.setItem('tracking-saved', JSON.stringify(sv));
+    openLoad();
+  });
   document.getElementById('load-modal').classList.add('show');
 }
 function loadSaved(i) {
@@ -1743,6 +1758,53 @@ function loadSaved(i) {
 document.getElementById('load-btn').onclick = openLoad;
 document.getElementById('load-btn2').onclick = openLoad;
 document.getElementById('load-cancel').onclick = () => document.getElementById('load-modal').classList.remove('show');
+document.getElementById('new-nosave').onclick = () => {
+  if (legs.length && !confirm('Start a new track WITHOUT saving this one? It will be lost.')) return;
+  localStorage.removeItem('tracking-autosave');
+  legs = []; currentLeg = null; articlesPlaced = 0; crossTracksPlaced = 0; history = []; hideDesc = ''; diversion = null; selectedFlag = null;
+  setTrackDone(false);
+  document.getElementById('fullmap').classList.remove('show');
+  document.getElementById('start-page').style.display = 'flex';
+};
+
+// v7.2: export/import in a fixed, versioned file format (see FORMAT below)
+// FORMAT v1: {"format":"tracking-track","formatVersion":1,"appVersion":"7.2","exported":ISO,
+//   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
+// Future versions must keep reading formatVersion 1 files.
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '7.2';
+async function exportTrack(t) {
+  const d = new Date(t.t || Date.now()), pad = n => String(n).padStart(2, '0');
+  const name = `TD${t.level}-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+  const body = JSON.stringify({format: TRACK_FORMAT, formatVersion: TRACK_FORMAT_VERSION, appVersion: APP_VERSION, exported: new Date().toISOString(), track: t}, null, 1);
+  const file = new File([body], name, {type: 'application/json'});
+  try {
+    if (navigator.canShare && navigator.canShare({files: [file]})) { await navigator.share({files: [file], title: name}); return; }
+  } catch (e) { if (e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function importTrackText(txt) {
+  const o = JSON.parse(txt);
+  if (!o || o.format !== TRACK_FORMAT || !o.track) throw new Error('not a Tracking export file');
+  if (o.formatVersion > TRACK_FORMAT_VERSION) throw new Error('file is from a newer app version (format ' + o.formatVersion + '); update the app');
+  const t = o.track;
+  if (!Array.isArray(t.legs) || !t.legs.length || !t.level) throw new Error('file has no track data');
+  const sv = JSON.parse(localStorage.getItem('tracking-saved') || '[]');
+  sv.push(t); while (sv.length > 30) sv.shift();
+  localStorage.setItem('tracking-saved', JSON.stringify(sv));
+}
+document.getElementById('export-btn').onclick = () => {
+  if (!legs.length) { alert('No track to export.'); return; }
+  autoSave();
+  exportTrack(JSON.parse(localStorage.getItem('tracking-autosave')));
+};
+document.getElementById('import-btn').onclick = () => document.getElementById('import-file').click();
+document.getElementById('import-file').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { try { importTrackText(r.result); openLoad(); alert('Imported. Tap it in the list to open.'); } catch (err) { alert('Import failed: ' + err.message); } e.target.value = ''; };
+  r.readAsText(f);
+};
 </script>
 </body>
 </html>
