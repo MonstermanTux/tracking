@@ -181,8 +181,9 @@ button:active { transform: scale(0.95); }
 </div>
 
 <div id="fullmap">
-  <div style="padding:8px; display:flex; justify-content:space-between; align-items:center;">
-    <strong>Full Track Map – tap a leg to edit</strong>
+  <div style="padding:8px; display:flex; flex-wrap:wrap; gap:6px; justify-content:space-between; align-items:center;">
+    <strong id="fullmap-title">Full Track Map – tap a leg to edit</strong>
+    <button id="move-labels-btn" type="button" style="background:#555;color:#fff;">Move labels</button>
     <button id="pdf-btn" type="button" style="display:none;background:#fff;color:#000;">📄 PDF</button>
     <button id="close-fullmap">Close</button>
     <button id="recentre-btn" type="button" style="background:#ffeb3b;color:#000;">Recentre</button>
@@ -933,7 +934,7 @@ function drawFullMap(pw, ph) {
   let x = w/2, y = h - 40;
   let heading = -Math.PI/2;
   const st0 = legs[0] && legs[0].flags[0] && legs[0].flags[0].isStart ? legs[0].flags[0] : null;
-  points.push({x, y, leg:0, flag:0, article: st0 && st0.article ? st0.article.desc : null, articleAtFlag: true});
+  points.push({x, y, leg:0, flag:0, fo: st0, article: st0 && st0.article ? st0.article.desc : null, articleAtFlag: true});
   legs.forEach((leg, li) => {
     const startIdx = leg.flags[0] && leg.flags[0].isStart ? 1 : 0;
     for (let i = startIdx; i < leg.flags.length; i++) {
@@ -944,7 +945,7 @@ function drawFullMap(pw, ph) {
       y += Math.sin(heading) * len;
       const midX = (prevX + x) / 2;
       const midY = (prevY + y) / 2;
-      points.push({x, y, leg: li, flag: leg.flags[i].id, 
+      points.push({x, y, leg: li, flag: leg.flags[i].id, fo: leg.flags[i],
         article: leg.flags[i].article ? leg.flags[i].article.desc : null, 
         articleAtFlag: leg.flags[i].article ? !!leg.flags[i].article.atFlag : false,
         cross: leg.crossTracks.find(ct => (ct.flagId !== undefined && ct.flagId === leg.flags[i].id) || ct.afterFlag === i), 
@@ -964,6 +965,7 @@ function drawFullMap(pw, ph) {
     points.forEach(p => { minX=Math.min(minX,p.x); maxX=Math.max(maxX,p.x); minY=Math.min(minY,p.y); maxY=Math.max(maxY,p.y); });
     window.lastTrackExtent = [maxX-minX||1, maxY-minY||1];
     const scale = Math.min((w-160)/(maxX-minX||1), (h-160)/(maxY-minY||1));
+    fmScale = scale || 1;
     const ox = (w - (maxX-minX)*scale)/2 - minX*scale;
     const oy = (h - (maxY-minY)*scale)/2 - minY*scale;
     points = points.map(p => ({
@@ -975,7 +977,8 @@ function drawFullMap(pw, ph) {
     }));
   }
   // collision boxes: track dots + line samples, then each label as placed
-  labelBoxes = [];
+  labelBoxes = []; labelHits = []; aimHits = [];
+  const L0 = legs[0], LN = legs[legs.length - 1];
   points.forEach((p, k) => {
     labelBoxes.push({x: p.x - 9/mapScale, y: p.y - 9/mapScale, w: 18/mapScale, h: 18/mapScale});
     if (k) { const a = points[k-1]; const n = Math.ceil(Math.hypot(p.x-a.x, p.y-a.y) / (8/mapScale));
@@ -1012,7 +1015,7 @@ function drawFullMap(pw, ph) {
     fctx.lineTo(ex - Math.cos(ang + 0.4)*12/mapScale, ey - Math.sin(ang + 0.4)*12/mapScale);
     fctx.stroke();
     fctx.fillStyle = '#ff9800'; fctx.font = 'bold ' + (13/mapScale) + 'px sans-serif';
-    wrapText('DIVERSION ' + (p.div.side === 'L' ? 'LEFT' : 'RIGHT') + (p.div.desc ? ': ' + p.div.desc : ''), ex + 6/mapScale, ey + 4/mapScale);
+    wrapText('DIVERSION ' + (p.div.side === 'L' ? 'LEFT' : 'RIGHT') + (p.div.desc ? ': ' + p.div.desc : ''), ex + 6/mapScale, ey + 4/mapScale, {o: L0, k: 'div'});
     fctx.strokeStyle = '#ffeb3b';
   });
   if (R(level).startType === 'gate' && points.length > 1) {
@@ -1029,29 +1032,30 @@ function drawFullMap(pw, ph) {
     fctx.stroke();
     fctx.fillStyle = '#4caf50';
     fctx.font = (11/mapScale) + 'px sans-serif';
-    wrapText('GATE ' + RULES.gateWidthM + 'm', s.x + 8/mapScale, s.y + 14/mapScale);
+    wrapText('GATE ' + RULES.gateWidthM + 'm', s.x + 8/mapScale, s.y + 14/mapScale, {o: L0, k: 'gate'});
     fctx.strokeStyle = '#ffeb3b';
   }
   if (legs[0] && legs[0].start && legs[0].start.desc && points.length > 0) {
     fctx.fillStyle = '#4caf50';
     fctx.font = '14px sans-serif';
-    wrapText('START: ' + legs[0].start.desc, points[0].x + 10, points[0].y + 20);
+    wrapText('START: ' + legs[0].start.desc, points[0].x + 10, points[0].y + 20, {o: L0, k: 'start'});
   }
   if (!R(level).startArticleOnTrack && points.length > 0) {
     // TD7-10: judge holds the start article in a sealed scent bag
     fctx.fillStyle = '#ffffff';
     fctx.font = 'italic bold ' + (13/mapScale) + 'px sans-serif';
-    wrapText('Start article: sealed bag (judge)', points[0].x + 10/mapScale, points[0].y + 38/mapScale);
+    wrapText('Start article: sealed bag (judge)', points[0].x + 10/mapScale, points[0].y + 38/mapScale, {o: L0, k: 'bag'});
   }
   if (hideDesc && points.length > 0) {
     const last = points[points.length-1];
     fctx.fillStyle = '#ffff00';
     fctx.font = 'bold ' + (16/mapScale) + 'px sans-serif';
-    wrapText('HIDE: ' + hideDesc, last.x + 20/mapScale, last.y - 35/mapScale);
+    wrapText('HIDE: ' + hideDesc, last.x + 20/mapScale, last.y - 35/mapScale, {o: LN, k: 'hide'});
   }
   points.forEach((p, idx) => {
+    const newAim = !!(p.bearing && p.bearing !== p.prevBearing && p.fo);
     fctx.fillStyle = '#ffeb3b';
-    fctx.beginPath(); fctx.arc(p.x, p.y, 7/mapScale, 0, Math.PI*2); fctx.fill();
+    if (!newAim) { fctx.beginPath(); fctx.arc(p.x, p.y, 7/mapScale, 0, Math.PI*2); fctx.fill(); }
     if (p.article) { 
       const useMid = !p.articleAtFlag && p.midX !== undefined;
       const mx = useMid ? p.midX : p.x;
@@ -1064,9 +1068,9 @@ function drawFullMap(pw, ph) {
       const horiz = Math.abs(p.x - prev.x) > Math.abs(p.y - prev.y);
       const off = 22 / mapScale;
       if (horiz && !printMode) {
-        placeLinesRot(wrapLines(p.article), mx, my - off);
+        placeLinesRot(wrapLines(p.article), mx, my - off, {o: p.fo || L0, k: 'art'});
       } else {
-        wrapText(p.article, mx + off, my);
+        wrapText(p.article, mx + off, my, {o: p.fo || L0, k: 'art'});
       }
     }
     if (p.cross) {
@@ -1081,24 +1085,31 @@ function drawFullMap(pw, ph) {
       fctx.lineTo(mx - Math.cos(ang)*36/mapScale, my - Math.sin(ang)*36/mapScale);
       fctx.stroke();
       fctx.strokeStyle='#ffeb3b';
-      if (p.cross.desc) wrapText(p.cross.desc, mx+8/mapScale, my+14/mapScale);
+      if (p.cross.desc) wrapText(p.cross.desc, mx+8/mapScale, my+14/mapScale, {o: p.fo || L0, k: 'cross'});
     }
-    if (p.bearing && p.bearing !== p.prevBearing) {
-      fctx.fillStyle = '#ffeb3b';
-      fctx.font = 'bold ' + (13/mapScale) + 'px sans-serif';
+    if (newAim) {
+      // v7.5 aim vector: engineering-dimension arrowhead (filled narrow triangle) at the flag, pointing along the new bearing
+      const nx = points[idx+1], pv = points[Math.max(0, idx-1)] || p;
+      const a0 = nx ? Math.atan2(nx.y - p.y, nx.x - p.x) : Math.atan2(p.y - pv.y, p.x - pv.x);
+      const AL = 40 / mapScale, AW = 7 / mapScale, ux = Math.cos(a0), uy = Math.sin(a0);
+      fctx.fillStyle = '#fff';
+      fctx.beginPath(); // aim-arrow
+      fctx.moveTo(p.x + ux*AL, p.y + uy*AL);
+      fctx.lineTo(p.x - uy*AW, p.y + ux*AW);
+      fctx.lineTo(p.x + uy*AW, p.y - ux*AW);
+      fctx.closePath(); fctx.fill();
+      aimHits.push({p, cx: p.x + ux*AL/2, cy: p.y + uy*AL/2});
+      fctx.fillStyle = '#fff'; // aim text same colour as the arrow, slightly smaller than flag labels
+      fctx.font = 'bold ' + (12/mapScale) + 'px sans-serif';
       const prev = points[Math.max(0, idx-1)] || p;
       const horiz = Math.abs(p.x - prev.x) > Math.abs(p.y - prev.y);
       const off = 28 / mapScale;
+      const aref = {o: p.fo, k: 'aim', p};
       if (horiz && !printMode) {
-        placeLinesRot(wrapLines('AIM: ' + p.bearing), p.x, p.y - off);
+        placeLinesRot(wrapLines(p.bearing), p.x, p.y - off, aref);
       } else {
-        wrapText('AIM: ' + p.bearing, p.x + off, p.y - off/2);
+        wrapText(p.bearing, p.x + off, p.y - off/2, aref);
       }
-      fctx.strokeStyle = '#fff';
-      fctx.lineWidth = 2 / mapScale;
-      fctx.beginPath();
-      fctx.arc(p.x, p.y, 12/mapScale, 0, Math.PI*2);
-      fctx.stroke();
       fctx.strokeStyle = '#ffeb3b';
     }
     // Distance + cumulative at end of every leg (including final)
@@ -1134,7 +1145,7 @@ function drawFullMap(pw, ph) {
       const distTxt = legMeters + 'm (' + cum + 'm)';
       const noteTxt = p.cornerNote || '';
       fctx.textAlign = 'center';
-      placeLines((noteTxt ? wrapLines(noteTxt) : []).concat([distTxt]), ox, oy);
+      placeLines((noteTxt ? wrapLines(noteTxt) : []).concat([distTxt]), ox, oy, p.fo ? {o: p.fo, k: 'dist'} : null);
       fctx.textAlign = 'left';
     }
   });
@@ -1145,6 +1156,27 @@ function drawFullMap(pw, ph) {
     let my = e.clientY - rect.top;
     mx = (mx - mapTx) / (mapScale || 1);
     my = (my - mapTy) / (mapScale || 1);
+    if (moveLabels) return; // v7.5: taps do nothing while moving labels
+    // v7.5: tap an aim arrow or its description -> bearing / aim editor
+    let aimP = null;
+    for (const h of labelHits) if (h.ref.k === 'aim' && mx >= h.box.x && mx <= h.box.x + h.box.w && my >= h.box.y && my <= h.box.y + h.box.h) aimP = h.ref.p;
+    if (!aimP) for (const a of aimHits) if (!a.p.dir && Math.hypot(mx - a.cx, my - a.cy) < 16 / (mapScale || 1)) aimP = a.p;
+    if (aimP && legs[aimP.leg]) {
+      const leg = legs[aimP.leg], flag = aimP.fo, fIdx = leg.flags.indexOf(flag);
+      if (fIdx >= 0) {
+        document.getElementById('fullmap').classList.remove('show');
+        document.body.style.overflow = '';
+        currentLeg = leg; selectedFlag = flag;
+        const bar = document.getElementById('dir-bar'); if (bar) bar.innerHTML = '';
+        openDesc('Bearing / aim point from Flag ' + flag.id + ' to end of leg', desc => {
+          saveState();
+          setBearingFrom(leg, fIdx, desc);
+          render(); drawMud(); drawFullMap();
+          document.getElementById('fullmap').classList.add('show');
+        }, flag.bearing || '');
+        return;
+      }
+    }
     // Prefer flag hit for corner edit
     let bestFlag = null, bestFlagD = 28;
     for (let p of points) {
@@ -1241,7 +1273,36 @@ let mapScale = 1, mapTx = 0, mapTy = 0;
 function setupMapGestures() {
   const el = document.getElementById('fullcanvas');
   let lastDist = 0, lastX = 0, lastY = 0, dragging = false;
+  // v7.5: label drag (Move labels on). A grabbed label takes the gesture so panning never fights it.
+  let lblDrag = null;
+  const toMap = (cx, cy) => { const r = el.getBoundingClientRect(); return [(cx - r.left - mapTx) / (mapScale || 1), (cy - r.top - mapTy) / (mapScale || 1)]; };
+  const grabLabel = (cx, cy) => {
+    if (!moveLabels) return false;
+    const [mx, my] = toMap(cx, cy), pad = 6 / (mapScale || 1);
+    for (let i = labelHits.length - 1; i >= 0; i--) {
+      const h = labelHits[i], b = h.box;
+      if (mx >= b.x - pad && mx <= b.x + b.w + pad && my >= b.y - pad && my <= b.y + b.h + pad) {
+        saveState();
+        lblDrag = {o: h.ref.o, k: h.ref.k, cur: h.cur, mx, my};
+        return true;
+      }
+    }
+    return false;
+  };
+  const moveLabel = (cx, cy) => {
+    const [mx, my] = toMap(cx, cy), d = lblDrag;
+    const r2 = v => Math.round(v * 100) / 100;
+    d.o.lblOff = d.o.lblOff || {};
+    d.o.lblOff[d.k] = [r2((d.cur[0] + mx - d.mx) / fmScale), r2((d.cur[1] + my - d.my) / fmScale)];
+    drawFullMap();
+  };
+  const dropLabel = () => { lblDrag = null; autoSave(); };
+  el.onmousedown = e => { if (grabLabel(e.clientX, e.clientY)) e.preventDefault(); };
+  window.addEventListener('mousemove', e => { if (lblDrag) moveLabel(e.clientX, e.clientY); });
+  window.addEventListener('mouseup', () => { if (lblDrag) dropLabel(); });
   el.ontouchstart = e => {
+    if (e.touches.length === 1 && grabLabel(e.touches[0].clientX, e.touches[0].clientY)) { dragging = false; return; }
+    if (lblDrag && e.touches.length > 1) dropLabel();
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -1254,6 +1315,7 @@ function setupMapGestures() {
   };
   el.ontouchmove = e => {
     e.preventDefault();
+    if (lblDrag) { if (e.touches.length === 1) moveLabel(e.touches[0].clientX, e.touches[0].clientY); return; }
     if (e.touches.length === 2 && lastDist) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -1272,6 +1334,8 @@ function setupMapGestures() {
   el.ontouchend = e => {
     lastDist = 0;
     dragging = false;
+    if (lblDrag) { dropLabel(); return; }
+    if (moveLabels) return;
     if (e.changedTouches && e.changedTouches.length === 1 && mapScale <= 1.1) {
       const t = e.changedTouches[0];
       const fake = { clientX: t.clientX, clientY: t.clientY };
@@ -1281,6 +1345,13 @@ function setupMapGestures() {
   el.ondblclick = () => { mapScale = 1; mapTx = 0; mapTy = 0; drawFullMap(); };
 }
 setupMapGestures();
+document.getElementById('move-labels-btn').onclick = () => {
+  moveLabels = !moveLabels;
+  const b = document.getElementById('move-labels-btn');
+  b.style.background = moveLabels ? '#ff9800' : '#555'; b.style.color = moveLabels ? '#000' : '#fff';
+  b.textContent = moveLabels ? 'Move labels: ON' : 'Move labels';
+  document.getElementById('fullmap-title').textContent = moveLabels ? 'Drag labels to move them' : 'Full Track Map – tap a leg to edit';
+};
 
 // ---- Dictation v2: ONE continuous SpeechRecognition session shared by all popups ----
 // iOS Safari refuses to restart recognition soon after a stop/abort, so we never stop it
@@ -1379,11 +1450,17 @@ function wrapLines(text) {
 }
 let labelBoxes = [];
 let printMode = false;
+// v7.5 move-labels: offsets stored in track units (map px / fit scale) as optional lblOff:{key:[dx,dy]} on flags and legs
+let moveLabels = false, fmScale = 1, labelHits = [], aimHits = [];
+function getLblOff(ref) {
+  const o = ref && ref.o && ref.o.lblOff && ref.o.lblOff[ref.k];
+  return Array.isArray(o) && isFinite(o[0]) && isFinite(o[1]) ? [o[0] * fmScale, o[1] * fmScale] : null;
+}
 function boxHit(b) {
   return labelBoxes.some(o => b.x < o.x + o.w && b.x + b.w > o.x && b.y < o.y + o.h && b.y + b.h > o.y);
 }
 // Draw lines of text near (x,y), nudging away from track and other labels so nothing overlaps
-function placeLines(lines, x, y) {
+function placeLines(lines, x, y, ref) {
   if (!lines.length) return;
   const fs = parseFloat((fctx.font.match(/([\d.]+)px/) || [0, 13])[1]);
   const lh = fs * 1.2, h = lines.length * lh;
@@ -1396,7 +1473,9 @@ function placeLines(lines, x, y) {
                [r*step*1.5, r*step], [r*step*1.5, -r*step], [-(w + r*step), r*step], [-(w + r*step), -r*step]);
   }
   let best = tries[0];
-  for (const t of tries) {
+  const fixed = getLblOff(ref);
+  if (fixed) best = fixed;
+  else for (const t of tries) {
     const left = (center ? x - w/2 : x) + t[0];
     const b = {x: left - 2, y: y + t[1] - fs, w: w + 4, h: h + 2};
     const vx0 = -mapTx / mapScale, vy0 = -mapTy / mapScale;
@@ -1406,10 +1485,11 @@ function placeLines(lines, x, y) {
   }
   const left = (center ? x - w/2 : x) + best[0];
   labelBoxes.push({x: left - 2, y: y + best[1] - fs, w: w + 4, h: h + 2});
+  if (ref) labelHits.push({ref, cur: best.slice(), box: labelBoxes[labelBoxes.length - 1]});
   lines.forEach((t, k) => fctx.fillText(t, x + best[0], y + best[1] + k * lh));
 }
 // Vertical (rotated -90°) labels: same overlap check, box worked out in map coordinates
-function placeLinesRot(lines, ax, ay) {
+function placeLinesRot(lines, ax, ay, ref) {
   if (!lines.length) return;
   const fs = parseFloat((fctx.font.match(/([\d.]+)px/) || [0, 13])[1]);
   const lh = fs * 1.2, h = lines.length * lh;
@@ -1424,26 +1504,29 @@ function placeLinesRot(lines, ax, ay) {
   const vx1 = (fullcanvas.width - mapTx) / mapScale, vy1 = (fullcanvas.height - mapTy) / mapScale;
   const boxAt = t => ({x: ax + t[0] - fs - 2, y: ay + t[1] - w - 2, w: h + 4, h: w + 4});
   let best = tries[0];
-  for (const t of tries) {
+  const fixed = getLblOff(ref);
+  if (fixed) best = fixed;
+  else for (const t of tries) {
     const b = boxAt(t);
     const inside = b.x >= vx0 && b.y >= vy0 && b.x + b.w <= vx1 && b.y + b.h <= vy1;
     if (inside && !boxHit(b)) { best = t; break; }
   }
   labelBoxes.push(boxAt(best));
+  if (ref) labelHits.push({ref, cur: best.slice(), box: labelBoxes[labelBoxes.length - 1]});
   fctx.save();
   fctx.translate(ax + best[0], ay + best[1]);
   fctx.rotate(-Math.PI/2);
   lines.forEach((t, k) => fctx.fillText(t, 0, k * lh));
   fctx.restore();
 }
-function wrapText(text, x, y) {
+function wrapText(text, x, y, ref) {
   const tf = fctx.getTransform();
   // rotated labels (screen only) skip collision placement
   if (tf.b !== 0 || tf.c !== 0) {
     const fs = parseFloat((fctx.font.match(/([\d.]+)px/) || [0, 13])[1]);
     return wrapLines(text).forEach((t, k) => fctx.fillText(t, x, y + k * fs * 1.2));
   }
-  placeLines(wrapLines(text), x, y);
+  placeLines(wrapLines(text), x, y, ref);
 }
 
 function setDescKind(title) {
@@ -1799,7 +1882,8 @@ document.getElementById('new-nosave').onclick = () => {
 // FORMAT v1: {"format":"tracking-track","formatVersion":1,"appVersion":"7.2","exported":ISO,
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '7.2';
+// v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '7.5';
 async function exportTrack(t) {
   const d = new Date(t.t || Date.now()), pad = n => String(n).padStart(2, '0');
   const name = `TD${t.level}-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
