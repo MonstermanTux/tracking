@@ -130,6 +130,14 @@ button:active { transform: scale(0.95); }
   <button id="export-btn" type="button">Export</button>
 </div>
 
+<div id="exit-modal" class="modal" style="z-index:400;">
+  <div class="modal-content">
+    <h3 id="exit-title" style="color:#ff9800;">Corner moved: choose exit</h3>
+    <div id="exit-why" style="font-size:14px;margin-bottom:8px;"></div>
+    <div id="exit-btns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
+  </div>
+</div>
+
 <div id="load-modal" class="modal" style="z-index:300;">
   <div class="modal-content" style="max-height:80vh;overflow-y:auto;">
     <h3>Load saved track</h3>
@@ -451,7 +459,7 @@ function addFlag() {
     // insert a flag after the selected one; later flags move out 50m
     saveState();
     const sel = currentLeg.flags[si];
-    const nf = { id: sel.isStart ? 1 : sel.id + 1, bearing: currentLeg.flags[si + 1].bearing || sel.bearing || '', direction: null, article: null, gps: null };
+    const nf = { id: sel.isStart ? 1 : sel.id + 1, bearing: sel.bearing || currentLeg.flags[si + 1].bearing || '', direction: null, article: null, gps: null };
     for (let j = si + 1; j < currentLeg.flags.length; j++) currentLeg.flags[j].id += 1;
     currentLeg.flags.splice(si + 1, 0, nf);
     currentLeg.crossTracks.forEach(ct => { if (ct.afterFlag > si) { ct.afterFlag += 1; if (ct.flagId !== undefined) ct.flagId += 1; } });
@@ -463,6 +471,7 @@ function addFlag() {
   saveState();
   const last = currentLeg.flags[currentLeg.flags.length-1];
   const nextId = last.isStart ? 1 : (last.id + 1);
+  const cornerLeg = legs.indexOf(currentLeg) < legs.length - 1 ? currentLeg : null;
   currentLeg.flags.push({
     id: nextId,
     bearing: last.bearing || '',
@@ -485,8 +494,20 @@ function addFlag() {
     currentLeg.flags[newIdx].bearing = last.bearing || '';
     render();
   }
+  if (cornerLeg) promptExit(cornerLeg, 'You added a flag after the corner, so the corner moved out 50m.');
 }
 
+// v7.4: set a bearing/aim point from flag i onward, but stop at the first later flag that
+// already has a different bearing (a later aim point is never overwritten)
+function setBearingFrom(leg, i, desc) {
+  const old = leg.flags[i].bearing || '';
+  leg.flags[i].bearing = desc;
+  for (let j = i + 1; j < leg.flags.length; j++) {
+    const b = leg.flags[j].bearing || '';
+    if (b && b !== old) break;
+    leg.flags[j].bearing = desc;
+  }
+}
 let selectedFlag = null; // flag tapped in the leg list or on the map; −50m deletes it
 function relabelArticles() {
   let n = 0;
@@ -519,13 +540,23 @@ function delFlag() {
   if (currentLeg.diversion && currentLeg.diversion.atFlag > f.id) currentLeg.diversion.atFlag -= 1;
   selectedFlag = null;
   const li = legs.indexOf(currentLeg);
+  const wasCorner = idx === currentLeg.flags.length && li < legs.length - 1; // deleted the corner flag of a finished leg
   const minFlags = currentLeg.flags[0] && currentLeg.flags[0].isStart ? 1 : 0;
+  let exitLeg = null, why = '';
   if (currentLeg.flags.length <= minFlags && legs.length > 1 && li > 0) {
     legs.splice(li, 1);
+    const prev = legs[li - 1];
     currentLeg = legs[Math.min(li, legs.length - 1)];
-  }
+    if (li - 1 < legs.length - 1) { exitLeg = prev; why = 'Leg ' + (li + 1) + ' was removed, so Leg ' + li + ' now turns into a different leg.'; }
+    else {
+      // previous leg is now the leg in progress: its old exit no longer applies
+      prev.flags.forEach(f => { if (!f.isStart) f.direction = null; }); prev.exitDir = null; currentLeg = prev;
+      alert('Leg ' + (li + 1) + ' removed. Leg ' + li + ' exit cleared: choose the new direction on its last flag.');
+    }
+  } else if (wasCorner) { exitLeg = currentLeg; why = 'You deleted the corner flag, so the corner moved back 50m.'; }
   relabelArticles();
   render();
+  if (exitLeg) promptExit(exitLeg, why);
 }
 
 function setDirection(flagIndex, dir) {
@@ -760,10 +791,7 @@ function render() {
       e.preventDefault();
       const i = +inp.dataset.i;
       openDesc('Bearing / aim point', desc => {
-        currentLeg.flags[i].bearing = desc;
-        for (let j = i + 1; j < currentLeg.flags.length; j++) {
-          currentLeg.flags[j].bearing = desc;
-        }
+        setBearingFrom(currentLeg, i, desc);
         render();
       }, currentLeg.flags[i].bearing || '');
     };
@@ -1139,7 +1167,7 @@ function drawFullMap(pw, ph) {
         if (bar) bar.innerHTML = '';
         openDesc('Bearing / aim point from Flag ' + flag.id + ' to end of leg', desc => {
           saveState();
-          for (let j = fIdx; j < leg.flags.length; j++) leg.flags[j].bearing = desc;
+          setBearingFrom(leg, fIdx, desc);
           render(); drawMud(); drawFullMap();
           document.getElementById('fullmap').classList.add('show');
         }, flag.bearing || '');
@@ -1805,6 +1833,30 @@ document.getElementById('import-file').onchange = e => {
   r.onload = () => { try { importTrackText(r.result); openLoad(); alert('Imported. Tap it in the list to open.'); } catch (err) { alert('Import failed: ' + err.message); } e.target.value = ''; };
   r.readAsText(f);
 };
+
+// v7.3: when a corner moves (flags added/deleted at a corner, or a leg removed), force a fresh exit choice
+function promptExit(leg, why) {
+  const li = legs.indexOf(leg);
+  if (li < 0 || li >= legs.length - 1) return; // only corners into a following leg
+  const last = leg.flags[leg.flags.length - 1];
+  const cur = (last && last.direction) || leg.exitDir || null;
+  const labels = { '90L':'90° L', '90R':'90° R', 'obtL':'Obtuse L', 'obtR':'Obtuse R', 'acL':'Acute L', 'acR':'Acute R' };
+  const dirs = ['90L','90R','obtL','obtR']; if (allowAcute(level)) dirs.push('acL','acR');
+  document.getElementById('exit-title').textContent = 'Leg ' + (li + 1) + ' corner moved: choose exit';
+  document.getElementById('exit-why').innerHTML = why + '<br>Corner is now at Flag ' + (last.isStart ? 0 : last.id) + ' (' + (last.isStart ? 0 : last.id * FLAG_M) + 'm). Previous exit: <b>' + (cur ? labels[cur] || cur : 'none') + '</b>';
+  const box = document.getElementById('exit-btns');
+  box.innerHTML = dirs.map(d => `<button type="button" data-dir="${d}" style="background:#4caf50;color:#000;padding:10px;min-width:42%;">${labels[d]}</button>`).join('')
+    + (cur ? `<button type="button" data-dir="${cur}" style="background:#555;color:#fff;padding:10px;min-width:88%;">Keep ${labels[cur] || cur}</button>` : '');
+  box.querySelectorAll('button').forEach(b => b.onclick = () => {
+    const d = b.dataset.dir;
+    leg.flags.forEach(f => { if (f !== last && !f.isStart) f.direction = null; });
+    last.direction = d; leg.exitDir = d;
+    if (legs[li + 1]) legs[li + 1].entryDir = d;
+    document.getElementById('exit-modal').classList.remove('show');
+    render(); drawMud(); autoSave();
+  });
+  document.getElementById('exit-modal').classList.add('show');
+}
 </script>
 </body>
 </html>
