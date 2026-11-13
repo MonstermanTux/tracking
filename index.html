@@ -79,9 +79,9 @@ button:active { transform: scale(0.95); }
 #fullmap.show { display: flex; }
 #fullmap canvas { flex: 1; width: 100%; touch-action: none; }
 </style>
-<meta property="og:title" content="Tracking Tool" />
-<meta property="og:description" content="A digital tool for managing and printing dog tracking competition logs and maps." />
-<meta property="og:url" content="https://ebony-tangle-z5gk.here.now/" />
+<meta property="og:title" content="Tracking" />
+<meta property="og:description" content="A digital tool for managing and documenting dog tracking training sessions with PDF export capabilities." />
+<meta property="og:url" content="https://lilac-clover-dc8q.here.now/" />
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary" /></head>
 <body>
@@ -1039,7 +1039,10 @@ function placeLines(lines, x, y) {
   for (const t of tries) {
     const left = (center ? x - w/2 : x) + t[0];
     const b = {x: left - 2, y: y + t[1] - fs, w: w + 4, h: h + 2};
-    if (!boxHit(b)) { best = t; break; }
+    const vx0 = -mapTx / mapScale, vy0 = -mapTy / mapScale;
+    const vx1 = (fullcanvas.width - mapTx) / mapScale, vy1 = (fullcanvas.height - mapTy) / mapScale;
+    const inside = b.x >= vx0 && b.y >= vy0 && b.x + b.w <= vx1 && b.y + b.h <= vy1;
+    if (inside && !boxHit(b)) { best = t; break; }
   }
   const left = (center ? x - w/2 : x) + best[0];
   labelBoxes.push({x: left - 2, y: y + best[1] - fs, w: w + 4, h: h + 2});
@@ -1144,23 +1147,30 @@ function makeTrackPdf(info) {
   const g = pc.getContext('2d');
   g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH);
   g.fillStyle = '#000'; g.strokeStyle = '#000';
-  g.font = 'bold 44px sans-serif';
-  g.fillText('Tracking Test – TD' + level, 70, 100);
+  const M = 35; // small page margin
+  g.font = 'bold 40px sans-serif'; g.textAlign = 'left';
+  g.fillText('Tracking Test – TD' + level, M, 62);
   const totalDist = legs.reduce((s, leg) => s + leg.flags.filter(f => !f.isStart).length * 50, 0);
-  g.font = '26px sans-serif';
-  g.fillText(legs.length + ' legs · ' + totalDist + ' m · ' + articlesPlaced + ' articles', 70, 145);
-  const rows = [['Dog', info.dog], ['Competitor', info.comp], ['Judge', info.judge], ['Steward', info.steward], ['Date', info.date]];
-  g.font = 'bold 30px sans-serif';
+  g.font = '24px sans-serif'; g.textAlign = 'right';
+  g.fillText(legs.length + ' legs · ' + totalDist + ' m · ' + articlesPlaced + ' articles', PW - M, 62);
+  g.textAlign = 'center'; g.font = 'bold 24px sans-serif';
+  g.fillText('Date: ' + (info.date || '____________'), PW / 2, 62);
+  g.textAlign = 'left';
+  // two columns of headings, compact
+  const cols = [[M, 165, 600], [640, 790, PW - M]];
+  const rows = [['Dog', info.dog, 0], ['Competitor', info.comp, 1], ['Judge', info.judge, 0], ['Steward', info.steward, 1]];
   rows.forEach((r, k) => {
-    const y = 215 + k * 56;
-    g.font = 'bold 30px sans-serif'; g.fillText(r[0] + ':', 70, y);
-    g.lineWidth = 1.5; g.beginPath(); g.moveTo(260, y + 8); g.lineTo(PW - 70, y + 8); g.stroke();
-    if (r[1]) { g.font = '30px sans-serif'; g.fillText(r[1], 270, y); }
+    const c = cols[r[2]], y = 112 + Math.floor(k / 2) * 40;
+    g.font = 'bold 22px sans-serif'; g.fillText(r[0] + ':', c[0], y);
+    g.lineWidth = 1.2; g.beginPath(); g.moveTo(c[1] - 8, y + 6); g.lineTo(c[2], y + 6); g.stroke();
+    if (r[1]) { g.font = '22px sans-serif'; g.fillText(r[1], c[1], y); }
   });
-  g.lineWidth = 3; g.strokeRect(60, 500, PW - 120, PH - 560);
+  const MY = 192; // map box top
+  g.lineWidth = 3; g.strokeRect(M, MY, PW - 2 * M, PH - MY - M);
   // draw map at fixed size, unzoomed, then convert to black ink on white
   const sv = [mapScale, mapTx, mapTy]; mapScale = 1; mapTx = 0; mapTy = 0; printMode = true;
-  const MW = 700, MH = 700 * (PH - 580) / (PW - 140);
+  const IW = PW - 2 * M - 12, IH = PH - MY - M - 12;
+  const MW = 700, MH = 700 * IH / IW;
   drawFullMap(MW, MH);
   const img = fctx.getImageData(0, 0, MW, MH), d = img.data;
   for (let i = 0; i < d.length; i += 4) {
@@ -1168,7 +1178,7 @@ function makeTrackPdf(info) {
     const v = 255 - ink; d[i] = d[i+1] = d[i+2] = v; d[i+3] = 255;
   }
   fctx.putImageData(img, 0, 0);
-  g.drawImage(fullcanvas, 70, 510, PW - 140, PH - 580);
+  g.drawImage(fullcanvas, 0, 0, MW, MH, M + 6, MY + 6, IW, IH);
   [mapScale, mapTx, mapTy] = sv; printMode = false;
   drawFullMap();
   // build PDF with embedded JPEG
