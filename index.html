@@ -79,9 +79,9 @@ button:active { transform: scale(0.95); }
 #fullmap.show { display: flex; }
 #fullmap canvas { flex: 1; width: 100%; touch-action: none; }
 </style>
-<meta property="og:title" content="Tracking Exercise Tool" />
-<meta property="og:description" content="A digital tool for planning and managing dog tracking exercises with customizable difficulty levels and PDF generation." />
-<meta property="og:url" content="https://cerulean-quarry-njk7.here.now/" />
+<meta property="og:title" content="Tracking Tool" />
+<meta property="og:description" content="A digital tool for managing and printing dog tracking competition logs and maps." />
+<meta property="og:url" content="https://ebony-tangle-z5gk.here.now/" />
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary" /></head>
 <body>
@@ -622,6 +622,14 @@ function drawFullMap(pw, ph) {
       midY: p.midY !== undefined ? p.midY*scale + oy : undefined
     }));
   }
+  // collision boxes: track dots + line samples, then each label as placed
+  labelBoxes = [];
+  points.forEach((p, k) => {
+    labelBoxes.push({x: p.x - 9/mapScale, y: p.y - 9/mapScale, w: 18/mapScale, h: 18/mapScale});
+    if (k) { const a = points[k-1]; const n = Math.ceil(Math.hypot(p.x-a.x, p.y-a.y) / (8/mapScale));
+      for (let t = 1; t < n; t++) { const sx = a.x + (p.x-a.x)*t/n, sy = a.y + (p.y-a.y)*t/n;
+        labelBoxes.push({x: sx - 3/mapScale, y: sy - 3/mapScale, w: 6/mapScale, h: 6/mapScale}); } }
+  });
   fctx.save();
   fctx.translate(mapTx, mapTy);
   fctx.scale(mapScale, mapScale);
@@ -661,7 +669,7 @@ function drawFullMap(pw, ph) {
     fctx.stroke();
     fctx.fillStyle = '#4caf50';
     fctx.font = (11/mapScale) + 'px sans-serif';
-    fctx.fillText('GATE 20m', s.x + 8/mapScale, s.y + 14/mapScale);
+    wrapText('GATE 20m', s.x + 8/mapScale, s.y + 14/mapScale);
     fctx.strokeStyle = '#ffeb3b';
   }
   if (legs[0] && legs[0].start && legs[0].start.desc && points.length > 0) {
@@ -689,7 +697,7 @@ function drawFullMap(pw, ph) {
       const prev = points[Math.max(0, idx-1)] || p;
       const horiz = Math.abs(p.x - prev.x) > Math.abs(p.y - prev.y);
       const off = 22 / mapScale;
-      if (horiz) {
+      if (horiz && !printMode) {
         fctx.save();
         fctx.translate(mx, my - off);
         fctx.rotate(-Math.PI/2);
@@ -719,7 +727,7 @@ function drawFullMap(pw, ph) {
       const prev = points[Math.max(0, idx-1)] || p;
       const horiz = Math.abs(p.x - prev.x) > Math.abs(p.y - prev.y);
       const off = 28 / mapScale;
-      if (horiz) {
+      if (horiz && !printMode) {
         fctx.save();
         fctx.translate(p.x, p.y - off);
         fctx.rotate(-Math.PI/2);
@@ -768,8 +776,7 @@ function drawFullMap(pw, ph) {
       const distTxt = legMeters + 'm (' + cum + 'm)';
       const noteTxt = p.cornerNote || '';
       fctx.textAlign = 'center';
-      if (noteTxt) { const nl = wrapLines(noteTxt); nl.forEach((t,k) => fctx.fillText(t, ox, oy - 8/mapScale - (nl.length-1-k)*14/mapScale)); }
-      fctx.fillText(distTxt, ox, oy + (noteTxt ? 8 : 0)/mapScale);
+      placeLines((noteTxt ? wrapLines(noteTxt) : []).concat([distTxt]), ox, oy);
       fctx.textAlign = 'left';
     }
   });
@@ -1010,9 +1017,42 @@ function wrapLines(text) {
     if (line && fctx.measureText(t).width > maxW) { lines.push(line); line = w; } else line = t; });
   if (line) lines.push(line); return lines;
 }
-function wrapText(text, x, y) {
+let labelBoxes = [];
+let printMode = false;
+function boxHit(b) {
+  return labelBoxes.some(o => b.x < o.x + o.w && b.x + b.w > o.x && b.y < o.y + o.h && b.y + b.h > o.y);
+}
+// Draw lines of text near (x,y), nudging away from track and other labels so nothing overlaps
+function placeLines(lines, x, y) {
+  if (!lines.length) return;
   const fs = parseFloat((fctx.font.match(/([\d.]+)px/) || [0, 13])[1]);
-  wrapLines(text).forEach((t, k) => fctx.fillText(t, x, y + k * fs * 1.2));
+  const lh = fs * 1.2, h = lines.length * lh;
+  const w = Math.max(...lines.map(t => fctx.measureText(t).width));
+  const center = fctx.textAlign === 'center';
+  const step = Math.max(lh, 10 / mapScale);
+  const tries = [[0,0]];
+  for (let r = 1; r <= 10; r++) {
+    tries.push([0, r*step], [0, -r*step], [r*step*1.5, 0], [-(w + r*step), 0],
+               [r*step*1.5, r*step], [r*step*1.5, -r*step], [-(w + r*step), r*step], [-(w + r*step), -r*step]);
+  }
+  let best = tries[0];
+  for (const t of tries) {
+    const left = (center ? x - w/2 : x) + t[0];
+    const b = {x: left - 2, y: y + t[1] - fs, w: w + 4, h: h + 2};
+    if (!boxHit(b)) { best = t; break; }
+  }
+  const left = (center ? x - w/2 : x) + best[0];
+  labelBoxes.push({x: left - 2, y: y + best[1] - fs, w: w + 4, h: h + 2});
+  lines.forEach((t, k) => fctx.fillText(t, x + best[0], y + best[1] + k * lh));
+}
+function wrapText(text, x, y) {
+  const tf = fctx.getTransform();
+  // rotated labels (screen only) skip collision placement
+  if (tf.b !== 0 || tf.c !== 0) {
+    const fs = parseFloat((fctx.font.match(/([\d.]+)px/) || [0, 13])[1]);
+    return wrapLines(text).forEach((t, k) => fctx.fillText(t, x, y + k * fs * 1.2));
+  }
+  placeLines(wrapLines(text), x, y);
 }
 
 function openDesc(title, cb, existing) {
@@ -1119,7 +1159,7 @@ function makeTrackPdf(info) {
   });
   g.lineWidth = 3; g.strokeRect(60, 500, PW - 120, PH - 560);
   // draw map at fixed size, unzoomed, then convert to black ink on white
-  const sv = [mapScale, mapTx, mapTy]; mapScale = 1; mapTx = 0; mapTy = 0;
+  const sv = [mapScale, mapTx, mapTy]; mapScale = 1; mapTx = 0; mapTy = 0; printMode = true;
   const MW = 700, MH = 700 * (PH - 580) / (PW - 140);
   drawFullMap(MW, MH);
   const img = fctx.getImageData(0, 0, MW, MH), d = img.data;
@@ -1129,7 +1169,7 @@ function makeTrackPdf(info) {
   }
   fctx.putImageData(img, 0, 0);
   g.drawImage(fullcanvas, 70, 510, PW - 140, PH - 580);
-  [mapScale, mapTx, mapTy] = sv;
+  [mapScale, mapTx, mapTy] = sv; printMode = false;
   drawFullMap();
   // build PDF with embedded JPEG
   const jpg = atob(pc.toDataURL('image/jpeg', 0.92).split(',')[1]);
