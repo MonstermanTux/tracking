@@ -115,10 +115,11 @@ button:active { transform: scale(0.95); }
 <div id="toolbar">
   <button id="add-flag">+50m Flag</button>
   <button id="del-flag">−50m Flag</button>
-  <button id="div-l-btn" style="display:none">Div 30° L</button>
-  <button id="div-r-btn" style="display:none">Div 30° R</button>
+  <button id="div-l-btn" style="display:none">Div L</button>
+  <button id="div-r-btn" style="display:none">Div R</button>
   <button id="finish-btn" type="button">Finish Track</button>
   <button id="undo">Undo</button>
+  <button id="new-track">Save &amp; New</button>
   <button id="view-map">Full Map</button>
 </div>
 
@@ -350,7 +351,7 @@ function undo() {
   history.pop();
   const prev = JSON.parse(history[history.length-1]);
   Object.assign({legs, currentLeg, articlesPlaced, crossTracksPlaced, hideDesc}, prev);
-  legs = prev.legs; currentLeg = prev.currentLeg; articlesPlaced = prev.articlesPlaced;
+  legs = prev.legs; currentLeg = legs.length ? legs[legs.length-1] : null; articlesPlaced = prev.articlesPlaced;
   crossTracksPlaced = prev.crossTracksPlaced; hideDesc = prev.hideDesc || '';
   render();
 }
@@ -391,9 +392,8 @@ function newLeg() {
     entryDir: exitDir
   };
   if (isFirst && R(level).startArticleOnTrack) {
-    // TD1-6: start article sits on the start flag automatically as A0 (counts toward the article total)
+    // TD1-6: start article sits on the start flag automatically as A0 (not counted as a track article)
     currentLeg.flags[0].article = {desc: 'A0: Start article', label: 'A0', atFlag: true, gps: null};
-    articlesPlaced++;
   }
   legs.push(currentLeg);
   // Draw immediately so mud map shows Flag 1 before any further UI
@@ -473,7 +473,7 @@ function placeArticle(flagIndex, desc, atFlag) {
   const artErr = articleCheck(currentLeg, flagIndex, !!atFlag);
   if (artErr) return alert(artErr);
   saveState();
-  const label = 'A' + (articlesPlaced + (R(level).startArticleOnTrack ? 0 : 1)); // A0 is the start article on low levels
+  const label = 'A' + (articlesPlaced + 1); // A0 = start article (not counted)
   currentLeg.flags[flagIndex].article = {desc: label + ': ' + desc, label, atFlag: !!atFlag, gps: null};
   articlesPlaced++;
   render();
@@ -493,7 +493,13 @@ function placeCross(flagIndex, desc) {
   render();
 }
 
+function autoSave() {
+  try {
+    if (legs.length) localStorage.setItem('tracking-autosave', JSON.stringify({level, legs, articlesPlaced, crossTracksPlaced, hideDesc, trackDone, t: Date.now()}));
+  } catch (e) {}
+}
 function render() {
+  setTimeout(autoSave, 0);
   level = parseInt(levelEl.value) || level;
   document.getElementById('div-l-btn').style.display = allowDiversion(level) ? 'inline-block' : 'none';
   document.getElementById('div-r-btn').style.display = allowDiversion(level) ? 'inline-block' : 'none';
@@ -573,8 +579,9 @@ function render() {
       const i = +btn.dataset.i;
       if (currentLeg.flags[i] && currentLeg.flags[i].article) {
         saveState();
+        const wasStart = currentLeg.flags[i].isStart;
         currentLeg.flags[i].article = null;
-        articlesPlaced = Math.max(0, articlesPlaced - 1);
+        if (!wasStart) articlesPlaced = Math.max(0, articlesPlaced - 1);
         render();
       }
     });
@@ -810,6 +817,7 @@ function drawFullMap(pw, ph) {
   if (points.length > 1) {
     let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
     points.forEach(p => { minX=Math.min(minX,p.x); maxX=Math.max(maxX,p.x); minY=Math.min(minY,p.y); maxY=Math.max(maxY,p.y); });
+    window.lastTrackExtent = [maxX-minX||1, maxY-minY||1];
     const scale = Math.min((w-160)/(maxX-minX||1), (h-160)/(maxY-minY||1));
     const ox = (w - (maxX-minX)*scale)/2 - minX*scale;
     const oy = (h - (maxY-minY)*scale)/2 - minY*scale;
@@ -859,7 +867,7 @@ function drawFullMap(pw, ph) {
     fctx.lineTo(ex - Math.cos(ang + 0.4)*12/mapScale, ey - Math.sin(ang + 0.4)*12/mapScale);
     fctx.stroke();
     fctx.fillStyle = '#ff9800'; fctx.font = 'bold ' + (13/mapScale) + 'px sans-serif';
-    wrapText('DIVERSION ' + RULES.diversion.angleDeg + '° ' + (p.div.side === 'L' ? 'LEFT' : 'RIGHT') + ' ' + RULES.diversion.lengthM + 'm' + (p.div.desc ? ': ' + p.div.desc : ''), ex + 6/mapScale, ey + 4/mapScale);
+    wrapText('DIVERSION ' + (p.div.side === 'L' ? 'LEFT' : 'RIGHT') + ' ' + RULES.diversion.lengthM + 'm' + (p.div.desc ? ': ' + p.div.desc : ''), ex + 6/mapScale, ey + 4/mapScale);
     fctx.strokeStyle = '#ffeb3b';
   });
   if (R(level).startType === 'gate' && points.length > 1) {
@@ -1349,7 +1357,13 @@ function bindButtons() {
 }
 // ===== PDF export (A4, monochrome) =====
 function makeTrackPdf(info) {
-  const PW = 1240, PH = 1754; // A4 @150dpi
+  // pick portrait or landscape A4, whichever shows the track bigger
+  const sv0 = [mapScale, mapTx, mapTy]; mapScale = 1; mapTx = 0; mapTy = 0;
+  drawFullMap(700, 700); [mapScale, mapTx, mapTy] = sv0;
+  const ext = window.lastTrackExtent || [1, 1];
+  const fit = (pw, ph) => Math.min((pw - 82) / ext[0], (ph - 239) / ext[1]);
+  const land = fit(1754, 1240) > fit(1240, 1754) * 1.05;
+  const PW = land ? 1754 : 1240, PH = land ? 1240 : 1754; // A4 @150dpi
   const pc = document.createElement('canvas'); pc.width = PW; pc.height = PH;
   const g = pc.getContext('2d');
   g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH);
@@ -1364,7 +1378,7 @@ function makeTrackPdf(info) {
   g.fillText('Date: ' + (info.date || '____________'), PW / 2, 62);
   g.textAlign = 'left';
   // two columns of headings, compact
-  const cols = [[M, 165, 600], [640, 790, PW - M]];
+  const cols = [[M, 165, PW / 2 - 20], [PW / 2 + 20, PW / 2 + 170, PW - M]];
   const rows = [['Dog', info.dog, 0], ['Competitor', info.comp, 1], ['Judge', info.judge, 0], ['Steward', info.steward, 1]];
   rows.forEach((r, k) => {
     const c = cols[r[2]], y = 112 + Math.floor(k / 2) * 40;
@@ -1390,7 +1404,7 @@ function makeTrackPdf(info) {
   drawFullMap();
   // build PDF with embedded JPEG
   const jpg = atob(pc.toDataURL('image/jpeg', 0.92).split(',')[1]);
-  const A4W = 595.28, A4H = 841.89;
+  const A4W = land ? 841.89 : 595.28, A4H = land ? 595.28 : 841.89;
   const content = 'q ' + A4W + ' 0 0 ' + A4H + ' 0 0 cm /Im0 Do Q';
   const objs = [
     '<< /Type /Catalog /Pages 2 0 R >>',
@@ -1465,11 +1479,11 @@ if (document.getElementById('article-at-btn')) document.getElementById('article-
 };
 document.getElementById('div-l-btn').onclick = () => {
   if (!allowDiversion(level)) return;
-  openDesc('Diversion ' + RULES.diversion.angleDeg + '° L note', desc => { saveState(); currentLeg.diversion = {side:'L', desc, atFlag: currentLeg.flags[currentLeg.flags.length-1].id}; diversion = currentLeg.diversion; render(); });
+  openDesc('Diversion left note', desc => { saveState(); currentLeg.diversion = {side:'L', desc, atFlag: currentLeg.flags[currentLeg.flags.length-1].id}; diversion = currentLeg.diversion; render(); });
 };
 document.getElementById('div-r-btn').onclick = () => {
   if (!allowDiversion(level)) return;
-  openDesc('Diversion ' + RULES.diversion.angleDeg + '° R note', desc => { saveState(); currentLeg.diversion = {side:'R', desc, atFlag: currentLeg.flags[currentLeg.flags.length-1].id}; diversion = currentLeg.diversion; render(); });
+  openDesc('Diversion right note', desc => { saveState(); currentLeg.diversion = {side:'R', desc, atFlag: currentLeg.flags[currentLeg.flags.length-1].id}; diversion = currentLeg.diversion; render(); });
 };
 
 levelEl.onchange = () => {
@@ -1479,8 +1493,44 @@ levelEl.onchange = () => {
     newLeg();
   }
 };
-render();
-saveState();
+// ===== running save: reopen the last track after a crash or swipe-away =====
+document.addEventListener('visibilitychange', () => { if (document.hidden) autoSave(); });
+window.addEventListener('pagehide', autoSave);
+document.getElementById('new-track').onclick = () => {
+  if (!confirm('Save this track and start a new one?')) return;
+  autoSave();
+  try {
+    const cur = localStorage.getItem('tracking-autosave');
+    if (cur) {
+      const saved = JSON.parse(localStorage.getItem('tracking-saved') || '[]');
+      saved.push(JSON.parse(cur));
+      while (saved.length > 30) saved.shift(); // keep last 30 tracks
+      localStorage.setItem('tracking-saved', JSON.stringify(saved));
+    }
+  } catch (e) { if (!confirm('Could not save (' + e.message + '). Start new anyway?')) return; }
+  localStorage.removeItem('tracking-autosave');
+  legs = []; currentLeg = null; articlesPlaced = 0; crossTracksPlaced = 0; history = []; hideDesc = ''; diversion = null;
+  setTrackDone(false);
+  document.getElementById('fullmap').classList.remove('show');
+  document.getElementById('start-page').style.display = 'flex';
+};
+let restored = null;
+try { restored = JSON.parse(localStorage.getItem('tracking-autosave') || 'null'); } catch (e) {}
+if (restored && restored.legs && restored.legs.length) {
+  level = restored.level; levelEl.value = level;
+  legs = restored.legs; currentLeg = legs[legs.length-1];
+  articlesPlaced = restored.articlesPlaced || 0; crossTracksPlaced = restored.crossTracksPlaced || 0;
+  hideDesc = restored.hideDesc || ''; diversion = (legs.find(l => l.diversion) || {}).diversion || null;
+  document.getElementById('start-page').style.display = 'none';
+  render();
+  saveState();
+  setTrackDone(!!restored.trackDone);
+  const tm = new Date(restored.t).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
+  setTimeout(() => { statusEl.innerHTML = 'Restored saved track (' + tm + ')<br>' + statusEl.innerHTML; }, 50);
+} else {
+  render();
+  saveState();
+}
 bindButtons();
 </script>
 </body>
