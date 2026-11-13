@@ -79,15 +79,11 @@ button:active { transform: scale(0.95); }
 #fullmap.show { display: flex; }
 #fullmap canvas { flex: 1; width: 100%; touch-action: none; }
 </style>
-<meta property="og:title" content="Tracking" />
-<meta property="og:description" content="A digital tool for tracking and managing orienteering or navigation legs with level selection and map visualization features" />
-<meta property="og:url" content="https://dewy-anchor-xnq9.here.now/" />
+<meta property="og:title" content="Tracking Exercise Tool" />
+<meta property="og:description" content="A digital tool for planning and managing dog tracking exercises with customizable difficulty levels and PDF generation." />
+<meta property="og:url" content="https://cerulean-quarry-njk7.here.now/" />
 <meta property="og:type" content="website" />
-<meta property="og:image" content="https://here.now/og/dewy-anchor-xnq9.jpg" />
-<meta property="og:image:width" content="1280" />
-<meta property="og:image:height" content="720" />
-<meta name="twitter:image" content="https://here.now/og/dewy-anchor-xnq9.jpg" />
-<meta name="twitter:card" content="summary_large_image" /></head>
+<meta name="twitter:card" content="summary" /></head>
 <body>
 <div id="start-page" style="position:fixed;inset:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;">
   <h1 style="color:#ffeb3b;margin-bottom:20px;">Tracking</h1>
@@ -140,9 +136,25 @@ button:active { transform: scale(0.95); }
   </div>
 </div>
 
+<div id="pdf-modal" class="modal" style="z-index:300;">
+  <div class="modal-content">
+    <h3>Print PDF (A4) – names optional</h3>
+    <label>Dog<br><input id="pdf-dog" style="width:100%"></label><br>
+    <label>Competitor<br><input id="pdf-comp" style="width:100%"></label><br>
+    <label>Judge<br><input id="pdf-judge" style="width:100%"></label><br>
+    <label>Steward<br><input id="pdf-steward" style="width:100%"></label><br>
+    <label>Date<br><input id="pdf-date" type="date" style="width:100%"></label>
+    <div style="margin-top:10px; display:flex; gap:8px; justify-content:flex-end;">
+      <button id="pdf-cancel" type="button">Cancel</button>
+      <button id="pdf-make" type="button">Make PDF</button>
+    </div>
+  </div>
+</div>
+
 <div id="fullmap">
   <div style="padding:8px; display:flex; justify-content:space-between; align-items:center;">
     <strong>Full Track Map – tap a leg to edit</strong>
+    <button id="pdf-btn" type="button" style="display:none;background:#fff;color:#000;">📄 PDF</button>
     <button id="close-fullmap">Close</button>
     <button id="recentre-btn" type="button" style="background:#ffeb3b;color:#000;">Recentre</button>
   </div>
@@ -166,6 +178,8 @@ let articlesPlaced = 0;
 let crossTracksPlaced = 0;
 let pendingAction = null;
 let hideDesc = '';
+let trackDone = false;
+function setTrackDone(v) { trackDone = v; const b = document.getElementById('pdf-btn'); if (b) b.style.display = v ? 'inline-block' : 'none'; }
 let diversion = null;
 
 const maxArticles = {1:1,2:2,3:2,4:3,5:3,6:3,7:3,8:3,9:4,10:4};
@@ -178,6 +192,7 @@ const allowCross = l => l >= 5 && l <= 9;
 const allowDiversion = l => l === 10;
 
 function saveState() {
+  setTrackDone(false);
   history.push(JSON.stringify({legs, currentLeg, articlesPlaced, crossTracksPlaced, hideDesc}));
   if (history.length > 40) history.shift();
 }
@@ -558,9 +573,9 @@ function drawMud() {
   });
 }
 
-function drawFullMap() {
-  const w = fullcanvas.width = window.innerWidth;
-  const h = fullcanvas.height = window.innerHeight - 60;
+function drawFullMap(pw, ph) {
+  const w = fullcanvas.width = pw || window.innerWidth;
+  const h = fullcanvas.height = ph || (window.innerHeight - 60);
   fctx.fillStyle = '#000'; fctx.fillRect(0,0,w,h);
   fctx.strokeStyle = '#ffeb3b'; fctx.lineWidth = 3;
   fctx.font = '14px sans-serif'; fctx.fillStyle = '#fff';
@@ -770,7 +785,7 @@ function drawFullMap() {
     for (let p of points) {
       if (p.leg === undefined) continue;
       const d = Math.hypot(mx - p.x, my - p.y);
-      if (d < bestFlagD && p.dir) {
+      if (d < bestFlagD) {
         bestFlagD = d;
         bestFlag = p;
       }
@@ -781,6 +796,18 @@ function drawFullMap() {
       document.getElementById('fullmap').classList.remove('show');
       document.body.style.overflow = '';
       currentLeg = leg;
+      const fIdx = leg.flags.indexOf(flag);
+      const editBearing = () => {
+        if (bar) bar.innerHTML = '';
+        openDesc('Bearing / aim point from Flag ' + flag.id + ' to end of leg', desc => {
+          saveState();
+          for (let j = fIdx; j < leg.flags.length; j++) leg.flags[j].bearing = desc;
+          render(); drawMud(); drawFullMap();
+          document.getElementById('fullmap').classList.add('show');
+        }, flag.bearing || '');
+      };
+      let bar = document.getElementById('dir-bar');
+      if (!bestFlag.dir) { editBearing(); return; }
       const dirs = ['90L','90R','obtL','obtR'];
       if (allowAcute(level)) dirs.push('acL','acR');
       const labels = { '90L':'90° L', '90R':'90° R', 'obtL':'Obtuse L', 'obtR':'Obtuse R', 'acL':'Acute L', 'acR':'Acute R' };
@@ -791,15 +818,16 @@ function drawFullMap() {
       input.value = flag.cornerNote || '';
       input.placeholder = 'Corner note';
       // Inject direction buttons above the textarea
-      let bar = document.getElementById('dir-bar');
       if (!bar) {
         bar = document.createElement('div');
         bar.id = 'dir-bar';
         bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;justify-content:center;';
         input.parentNode.insertBefore(bar, input);
       }
-      bar.innerHTML = dirs.map(d => `<button type="button" data-dir="${d}" style="background:#4caf50;color:#000;padding:8px;">${labels[d]}</button>`).join('');
-      bar.querySelectorAll('button').forEach(b => {
+      bar.innerHTML = dirs.map(d => `<button type="button" data-dir="${d}" style="background:#4caf50;color:#000;padding:8px;">${labels[d]}</button>`).join('')
+        + `<button type="button" id="bar-bearing" style="background:#ffeb3b;color:#000;padding:8px;">Bearing</button>`;
+      bar.querySelector('#bar-bearing').onclick = editBearing;
+      bar.querySelectorAll('button[data-dir]').forEach(b => {
         b.onclick = () => {
           saveState();
           flag.direction = b.dataset.dir;
@@ -1029,6 +1057,7 @@ document.getElementById('begin-btn').onclick = () => {
   history = [];
   hideDesc = '';
   diversion = null;
+  setTrackDone(false);
   try {
     newLeg();
   } catch (e) {
@@ -1061,12 +1090,95 @@ function bindButtons() {
       }
       openDesc('Hide / finish description', function(desc) {
         hideDesc = desc || hideDesc;
+        setTrackDone(true);
         drawFullMap();
         document.getElementById('fullmap').classList.add('show');
       }, hideDesc);
     };
   }
 }
+// ===== PDF export (A4, monochrome) =====
+function makeTrackPdf(info) {
+  const PW = 1240, PH = 1754; // A4 @150dpi
+  const pc = document.createElement('canvas'); pc.width = PW; pc.height = PH;
+  const g = pc.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH);
+  g.fillStyle = '#000'; g.strokeStyle = '#000';
+  g.font = 'bold 44px sans-serif';
+  g.fillText('Tracking Test – TD' + level, 70, 100);
+  const totalDist = legs.reduce((s, leg) => s + leg.flags.filter(f => !f.isStart).length * 50, 0);
+  g.font = '26px sans-serif';
+  g.fillText(legs.length + ' legs · ' + totalDist + ' m · ' + articlesPlaced + ' articles', 70, 145);
+  const rows = [['Dog', info.dog], ['Competitor', info.comp], ['Judge', info.judge], ['Steward', info.steward], ['Date', info.date]];
+  g.font = 'bold 30px sans-serif';
+  rows.forEach((r, k) => {
+    const y = 215 + k * 56;
+    g.font = 'bold 30px sans-serif'; g.fillText(r[0] + ':', 70, y);
+    g.lineWidth = 1.5; g.beginPath(); g.moveTo(260, y + 8); g.lineTo(PW - 70, y + 8); g.stroke();
+    if (r[1]) { g.font = '30px sans-serif'; g.fillText(r[1], 270, y); }
+  });
+  g.lineWidth = 3; g.strokeRect(60, 500, PW - 120, PH - 560);
+  // draw map at fixed size, unzoomed, then convert to black ink on white
+  const sv = [mapScale, mapTx, mapTy]; mapScale = 1; mapTx = 0; mapTy = 0;
+  const MW = 700, MH = 700 * (PH - 580) / (PW - 140);
+  drawFullMap(MW, MH);
+  const img = fctx.getImageData(0, 0, MW, MH), d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const ink = Math.max(d[i], d[i+1], d[i+2]);
+    const v = 255 - ink; d[i] = d[i+1] = d[i+2] = v; d[i+3] = 255;
+  }
+  fctx.putImageData(img, 0, 0);
+  g.drawImage(fullcanvas, 70, 510, PW - 140, PH - 580);
+  [mapScale, mapTx, mapTy] = sv;
+  drawFullMap();
+  // build PDF with embedded JPEG
+  const jpg = atob(pc.toDataURL('image/jpeg', 0.92).split(',')[1]);
+  const A4W = 595.28, A4H = 841.89;
+  const content = 'q ' + A4W + ' 0 0 ' + A4H + ' 0 0 cm /Im0 Do Q';
+  const objs = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + A4W + ' ' + A4H + '] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>',
+    null,
+    '<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream'
+  ];
+  let pdf = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'; const offs = [];
+  objs.forEach((o, k) => {
+    offs.push(pdf.length);
+    if (k === 3) pdf += '4 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + PW + ' /Height ' + PH + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpg.length + ' >>\nstream\n' + jpg + '\nendstream\nendobj\n';
+    else pdf += (k + 1) + ' 0 obj\n' + o + '\nendobj\n';
+  });
+  const xref = pdf.length;
+  pdf += 'xref\n0 6\n0000000000 65535 f \n' + offs.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('');
+  pdf += 'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF';
+  const bytes = new Uint8Array(pdf.length);
+  for (let i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 255;
+  return new Blob([bytes], { type: 'application/pdf' });
+}
+document.getElementById('pdf-btn').onclick = () => {
+  if (!trackDone) return alert('Finish the track first');
+  ['dog','comp','judge','steward'].forEach(k => { document.getElementById('pdf-' + k).value = localStorage.getItem('pdf-' + k) || ''; });
+  const dt = document.getElementById('pdf-date'); if (!dt.value) dt.value = new Date().toISOString().slice(0, 10);
+  document.getElementById('pdf-modal').classList.add('show');
+};
+document.getElementById('pdf-cancel').onclick = () => document.getElementById('pdf-modal').classList.remove('show');
+document.getElementById('pdf-make').onclick = async () => {
+  const info = {};
+  ['dog','comp','judge','steward'].forEach(k => { info[k] = document.getElementById('pdf-' + k).value.trim(); localStorage.setItem('pdf-' + k, info[k]); });
+  const dv = document.getElementById('pdf-date').value;
+  info.date = dv ? dv.split('-').reverse().join('/') : '';
+  document.getElementById('pdf-modal').classList.remove('show');
+  const blob = makeTrackPdf(info);
+  const name = 'Tracking-TD' + level + (info.dog ? '-' + info.dog.replace(/[^\w-]+/g, '_') : '') + (dv ? '-' + dv : '') + '.pdf';
+  const file = new File([blob], name, { type: 'application/pdf' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+
 bindButtons();
 document.getElementById('undo').onclick = undo;
 document.getElementById('view-map').onclick = () => {
