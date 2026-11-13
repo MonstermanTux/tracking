@@ -1,1 +1,1084 @@
-FILE_CONTENT_FROM_LOCAL
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Tracking</title>
+<style>
+:root {
+  --bg: #1a1a1a; --fg: #ffffff; --accent: #ffeb3b; --cross: #00e5ff;
+  --article: #ff5252; --dir: #4caf50; --border: #000;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { margin: 0; padding: 8px; background: var(--bg); color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 16px;
+  height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+header { display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; border-bottom: 2px solid var(--accent); }
+h1 { margin: 0; font-size: 20px; }
+select, button, input, textarea {
+  background: #333; color: var(--fg); border: 2px solid var(--border);
+  border-radius: 8px; padding: 8px; font-size: 16px;
+}
+button { min-height: 48px; min-width: 48px; font-weight: bold; }
+button:active { transform: scale(0.95); }
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+#leg-view { flex: 1; overflow-y: auto; padding: 10px 0;
+  display: flex; flex-direction: column-reverse; align-items: center; }
+.flag { width: 90%; max-width: 400px; margin: 6px 0; padding: 10px;
+  background: #222; border: 3px solid var(--accent); border-radius: 12px;
+  display: flex; flex-direction: column; gap: 6px; }
+.flag.active { border-color: #fff; box-shadow: 0 0 8px var(--accent); }
+.bearing { font-size: 18px; padding: 6px; background: #000; border: 2px solid var(--accent); }
+.dirs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.dirs button { background: var(--dir); color: #000; }
+.cross-stub { width: 80%; height: 40px; background: var(--cross); margin: 4px auto;
+  border: 2px solid var(--border); border-radius: 6px; display: flex;
+  align-items: center; justify-content: space-around; font-size: 12px; color: #000; font-weight: bold; }
+.article-mark { color: var(--article); font-weight: bold; }
+#toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0;
+  border-top: 2px solid var(--accent); justify-content: center; }
+#mudmap-container { 
+  position: relative; 
+  width: 100%; 
+  height: 160px; 
+  background: #000; 
+  border: 2px solid var(--accent); 
+  border-radius: 8px; 
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+#mudmap { width: 100%; height: 100%; }
+#status { 
+  font-size: 18px; 
+  text-align: center; 
+  padding: 8px 6px; 
+  background: #222; 
+  border-top: 2px solid var(--accent);
+  flex-shrink: 0;
+  line-height: 1.4;
+  max-height: 120px;
+  overflow: auto;
+  font-weight: bold;
+}
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none;
+  align-items: center; justify-content: center; z-index: 100; }
+.modal.show { display: flex; }
+.modal-content { background: #222; padding: 16px; border-radius: 12px; width: 90%;
+  max-width: 400px; border: 3px solid var(--accent); }
+#fullmap { position: fixed; inset: 0; background: #000; display: none; z-index: 150;
+  flex-direction: column; overflow: hidden; touch-action: none; }
+#fullmap.show { display: flex; }
+#fullmap canvas { flex: 1; width: 100%; touch-action: none; }
+</style>
+<meta property="og:title" content="Tracking Tool" />
+<meta property="og:description" content="A tool for managing and visualizing orienteering track levels and map navigation." />
+<meta property="og:url" content="https://trusty-quail-a474.here.now/" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" /></head>
+<body>
+<div id="start-page" style="position:fixed;inset:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;">
+  <h1 style="color:#ffeb3b;margin-bottom:20px;">Tracking</h1>
+  <p style="margin-bottom:16px;">Select track level</p>
+  <select id="start-level" style="font-size:20px;padding:12px;margin-bottom:20px;">
+    <option value="">-- Choose TD level --</option>
+    <option value="1">TD1</option><option value="2">TD2</option><option value="3">TD3</option>
+    <option value="4">TD4</option><option value="5">TD5</option><option value="6">TD6</option>
+    <option value="7">TD7</option><option value="8">TD8</option><option value="9">TD9</option>
+    <option value="10">TD10</option>
+  </select>
+  <button id="begin-btn" style="font-size:18px;padding:14px 28px;background:#ffeb3b;color:#000;">Begin Track</button>
+</div>
+<header>
+  <h1>Tracking</h1>
+  <select id="level">
+    <option value="1">TD1</option><option value="2">TD2</option><option value="3">TD3</option>
+    <option value="4">TD4</option><option value="5">TD5</option><option value="6">TD6</option>
+    <option value="7">TD7</option><option value="8">TD8</option><option value="9">TD9</option>
+    <option value="10">TD10</option>
+  </select>
+</header>
+<div id="main">
+  <div id="leg-view"></div>
+  <div id="mudmap-container"><canvas id="mudmap" width="140" height="140"></canvas></div>
+</div>
+<div id="status">Select level then start</div>
+<div id="toolbar">
+  <button id="add-flag">+50m Flag</button>
+  <button id="del-flag">−50m Flag</button>
+  <button id="div-l-btn" style="display:none">Div 30° L</button>
+  <button id="div-r-btn" style="display:none">Div 30° R</button>
+  <button id="finish-btn" type="button">Finish Track</button>
+  <button id="undo">Undo</button>
+  <button id="view-map">Full Map</button>
+</div>
+
+<div id="desc-modal" class="modal">
+  <div class="modal-content">
+    <h3 id="modal-title">Description</h3>
+    <textarea id="desc-input" rows="3" placeholder="Location note (required)"></textarea>
+    <div style="margin-top:8px;">
+      <button type="button" id="dictate-btn" style="background:#ff5252;color:#fff;">🎤 Dictate</button>
+      <span id="dictate-status" style="margin-left:8px;font-size:13px;color:#aaa;"></span>
+    </div>
+    <div style="margin-top:10px; display:flex; gap:8px; justify-content:flex-end;">
+      <button id="desc-cancel">Cancel</button>
+      <button id="desc-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="fullmap">
+  <div style="padding:8px; display:flex; justify-content:space-between; align-items:center;">
+    <strong>Full Track Map – tap a leg to edit</strong>
+    <button id="close-fullmap">Close</button>
+    <button id="recentre-btn" type="button" style="background:#ffeb3b;color:#000;">Recentre</button>
+  </div>
+  <canvas id="fullcanvas" width="400" height="600"></canvas>
+</div>
+
+<script>
+const levelEl = document.getElementById('level');
+const legView = document.getElementById('leg-view');
+const statusEl = document.getElementById('status');
+const mudmap = document.getElementById('mudmap');
+const ctx = mudmap.getContext('2d');
+const fullcanvas = document.getElementById('fullcanvas');
+const fctx = fullcanvas.getContext('2d');
+
+let level = 1;
+let legs = [];
+let currentLeg = null;
+let history = [];
+let articlesPlaced = 0;
+let crossTracksPlaced = 0;
+let pendingAction = null;
+let hideDesc = '';
+let diversion = null;
+
+const maxArticles = {1:1,2:2,3:2,4:3,5:3,6:3,7:3,8:3,9:4,10:4};
+const minArticles = {1:0,2:1,3:1,4:2,5:2,6:2,7:2,8:2,9:3,10:3};
+const minLegs = {1:3,2:3,3:3,4:5,5:5,6:6,7:7,8:8,9:9,10:9};
+const minAcutes = {1:0,2:0,3:0,4:0,5:0,6:1,7:2,8:2,9:3,10:3};
+const minDist = {1:400,2:800,3:800,4:1000,5:1000,6:1200,7:1200,8:1200,9:1200,10:1200};
+const allowAcute = l => l >= 6;
+const allowCross = l => l >= 5 && l <= 9;
+const allowDiversion = l => l === 10;
+
+function saveState() {
+  history.push(JSON.stringify({legs, currentLeg, articlesPlaced, crossTracksPlaced, hideDesc}));
+  if (history.length > 40) history.shift();
+}
+function undo() {
+  if (history.length < 2) return;
+  history.pop();
+  const prev = JSON.parse(history[history.length-1]);
+  Object.assign({legs, currentLeg, articlesPlaced, crossTracksPlaced, hideDesc}, prev);
+  legs = prev.legs; currentLeg = prev.currentLeg; articlesPlaced = prev.articlesPlaced;
+  crossTracksPlaced = prev.crossTracksPlaced; hideDesc = prev.hideDesc || '';
+  render();
+}
+
+function newLeg() {
+  saveState();
+  let exitDir = null;
+  if (currentLeg && currentLeg.flags.length > 0) {
+    for (let i = currentLeg.flags.length - 1; i >= 0; i--) {
+      if (currentLeg.flags[i].direction && !currentLeg.flags[i].isStart) {
+        exitDir = currentLeg.flags[i].direction;
+        break;
+      }
+    }
+    if (!exitDir) exitDir = currentLeg.exitDir;
+    currentLeg.exitDir = exitDir;
+  }
+  const isGate = level >= 7;
+  const isFirst = legs.length === 0;
+  currentLeg = {
+    id: legs.length + 1,
+    start: isFirst ? { type: isGate ? 'gate' : 'flag', desc: '', gps: null } : null,
+    flags: isFirst 
+      ? [{id:0, bearing:'', direction:null, article:null, gps:null, isStart:true}, {id:1, bearing:'', direction:null, article:null, gps:null}]
+      : [{id:1, bearing:'', direction:null, article:null, gps:null}],
+    crossTracks: [],
+    diversion: null,
+    entryDir: exitDir
+  };
+  legs.push(currentLeg);
+  // Draw immediately so mud map shows Flag 1 before any further UI
+  render();
+  drawMud();
+  if (isFirst) {
+    openDesc(isGate ? 'Start gate description (20m line)' : 'Start flag description (Flag 0)', desc => {
+      if (currentLeg && currentLeg.start) currentLeg.start.desc = desc;
+      render();
+    });
+  }
+}
+
+function addFlag() {
+  if (!currentLeg) { newLeg(); return; }
+  saveState();
+  const last = currentLeg.flags[currentLeg.flags.length-1];
+  const nextId = last.isStart ? 1 : (last.id + 1);
+  currentLeg.flags.push({
+    id: nextId,
+    bearing: last.bearing || '',
+    direction: null, article: null, gps: null
+  });
+  const newIdx = currentLeg.flags.length - 1;
+  const alreadyHasBearing = currentLeg.flags.some(f => !f.isStart && f.bearing);
+  render();
+  if (!alreadyHasBearing) {
+    openDesc('Bearing / aim point', desc => {
+      // Apply from the leg's FIRST real flag (Flag 1), not the flag just added
+      const firstIdx = currentLeg.flags.findIndex(f => !f.isStart);
+      const from = firstIdx >= 0 ? firstIdx : newIdx;
+      for (let j = from; j < currentLeg.flags.length; j++) {
+        currentLeg.flags[j].bearing = desc;
+      }
+      render();
+    });
+  } else {
+    currentLeg.flags[newIdx].bearing = last.bearing || '';
+    render();
+  }
+}
+
+function delFlag() {
+  if (!currentLeg || !currentLeg.flags.length) return;
+  const last = currentLeg.flags[currentLeg.flags.length - 1];
+  if (last.isStart) return alert('Cannot delete start');
+  saveState();
+  if (last.article) articlesPlaced = Math.max(0, articlesPlaced - 1);
+  currentLeg.flags.pop();
+  if (currentLeg.flags.length <= (currentLeg.flags[0] && currentLeg.flags[0].isStart ? 1 : 0) && legs.length > 1) {
+    legs.pop();
+    currentLeg = legs[legs.length - 1];
+  }
+  render();
+}
+
+function setDirection(flagIndex, dir) {
+  saveState();
+  currentLeg.flags[flagIndex].direction = dir;
+  render();
+}
+
+function placeArticle(flagIndex, desc, atFlag) {
+  if (articlesPlaced >= (maxArticles[level] || 3)) return alert('Article quota reached');
+  saveState();
+  const label = 'A' + (articlesPlaced + 1);
+  currentLeg.flags[flagIndex].article = {desc: label + ': ' + desc, label, atFlag: !!atFlag, gps: null};
+  articlesPlaced++;
+  render();
+  drawMud();
+}
+
+function placeCross(flagIndex, desc) {
+  if (!allowCross(level)) return;
+  if (currentLeg.crossTracks.length >= 2) return alert('Max 2 cross tracks on this leg');
+  saveState();
+  const flagId = currentLeg.flags[flagIndex] ? currentLeg.flags[flagIndex].id : flagIndex;
+  currentLeg.crossTracks.push({ afterFlag: flagIndex, flagId: flagId, desc, gps: null });
+  crossTracksPlaced++;
+  render();
+}
+
+function render() {
+  level = parseInt(levelEl.value) || level;
+  document.getElementById('div-l-btn').style.display = allowDiversion(level) ? 'inline-block' : 'none';
+  document.getElementById('div-r-btn').style.display = allowDiversion(level) ? 'inline-block' : 'none';
+
+  if (!currentLeg) {
+    legView.innerHTML = '<p style="text-align:center;margin-top:40px">Tap Begin or +50m Flag</p>';
+    statusEl.textContent = `TD${level} – ready`;
+    drawMud();
+    return;
+  }
+
+  legView.innerHTML = '';
+  if (currentLeg.start) {
+    const startDiv = document.createElement('div');
+    startDiv.className = 'flag';
+    startDiv.style.borderColor = '#4caf50';
+    const label = currentLeg.start.type === 'gate' ? 'Flag 0 – START GATE (0m)' : 'Flag 0 – START (0m)';
+    startDiv.innerHTML = `<strong>${label}</strong><div>${currentLeg.start.desc || '(tap to edit)'}</div>`;
+    startDiv.onclick = () => openDesc(label + ' description', d => { currentLeg.start.desc = d; render(); });
+    legView.appendChild(startDiv);
+  }
+
+  currentLeg.flags.forEach((f, i) => {
+    const div = document.createElement('div');
+    div.className = 'flag' + (i === currentLeg.flags.length-1 ? ' active' : '');
+    const label = f.isStart ? 'Flag 0 (0m)' : `Flag ${f.id} (${f.id * 50}m)`;
+    const bearingField = f.isStart ? '' : `<input class="bearing" value="${f.bearing}" placeholder="Bearing / aim point" data-i="${i}">`;
+    const isLast = i === currentLeg.flags.length - 1;
+    const ct = currentLeg.crossTracks.find(c => c.afterFlag === i);
+    const dirButtons = (f.isStart || !isLast) ? (f.direction ? `<div>Leaving: <b>${f.direction}</b></div>` : '') : `
+      <div class="dirs" data-i="${i}">
+        <button data-dir="90L">90° L</button><button data-dir="90R">90° R</button>
+        <button data-dir="obtL">Obtuse L</button><button data-dir="obtR">Obtuse R</button>
+        ${allowAcute(level) ? '<button data-dir="acL">Acute L</button><button data-dir="acR">Acute R</button>' : ''}
+      </div>
+      ${f.direction ? `<div>Leaving: <b>${f.direction}</b></div>` : ''}`;
+    div.innerHTML = `
+      <strong>${label}</strong>
+      ${bearingField}
+      ${dirButtons}
+      ${f.article
+        ? `<div class="article-mark">Article: ${f.article.desc} <button type="button" class="del-art" data-i="${i}">✕ delete</button></div>`
+        : `<button type="button" class="add-art-before" data-i="${i}">+ Art before</button> <button type="button" class="add-art-at" data-i="${i}">+ Art at flag</button>`}
+      <button type="button" class="drop-gps" data-i="${i}">📍 Drop GPS${f.gps ? ' ✓' : ''}</button>
+      ${f.gps ? `<div style="font-size:12px;color:#8bc34a;">${f.gps.lat.toFixed(5)}, ${f.gps.lng.toFixed(5)}</div>` : ''}
+      ${allowCross(level) ? (ct ? `<div class="cross-stub">Cross: ${ct.desc} <button type="button" class="del-cross" data-i="${i}">✕</button></div>` : (currentLeg.crossTracks.length < 2 ? `<button type="button" class="add-cross" data-i="${i}">+ Cross before</button>` : '')) : ''}
+    `;
+    legView.appendChild(div);
+    if (ct) {
+      const stub = document.createElement('div');
+      stub.className = 'cross-stub';
+      stub.innerHTML = `←30m ←10m X 10m→ 30m→<br><small>${ct.desc}</small>`;
+      legView.appendChild(stub);
+    }
+  });
+
+  legView.querySelectorAll('.add-art-before').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const i = +btn.dataset.i;
+      openDesc('Article before this flag', desc => placeArticle(i, desc, false));
+    });
+  });
+  legView.querySelectorAll('.add-art-at').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const i = +btn.dataset.i;
+      openDesc('Article at this flag', desc => placeArticle(i, desc, true));
+    });
+  });
+  legView.querySelectorAll('.del-art').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const i = +btn.dataset.i;
+      if (currentLeg.flags[i] && currentLeg.flags[i].article) {
+        saveState();
+        currentLeg.flags[i].article = null;
+        articlesPlaced = Math.max(0, articlesPlaced - 1);
+        render();
+      }
+    });
+  });
+  legView.querySelectorAll('.add-cross').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const i = +btn.dataset.i;
+      if (currentLeg.crossTracks.length >= 2) return alert('Max 2 cross tracks on this leg');
+      openDesc('Cross track before this flag', desc => placeCross(i, desc));
+    });
+  });
+  legView.querySelectorAll('.del-cross').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const i = +btn.dataset.i;
+      saveState();
+      currentLeg.crossTracks = currentLeg.crossTracks.filter(c => c.afterFlag !== i);
+      crossTracksPlaced = Math.max(0, crossTracksPlaced - 1);
+      render();
+    });
+  });
+  legView.querySelectorAll('.drop-gps').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const i = +btn.dataset.i;
+      if (!navigator.geolocation) return alert('GPS not available');
+      btn.textContent = '📍 …';
+      navigator.geolocation.getCurrentPosition(pos => {
+        currentLeg.flags[i].gps = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
+        render();
+      }, err => {
+        alert('GPS failed: ' + (err.message || 'denied'));
+        render();
+      }, { enableHighAccuracy: true, timeout: 12000 });
+    });
+  });
+  legView.querySelectorAll('.bearing').forEach(inp => {
+    inp.onclick = e => {
+      e.preventDefault();
+      const i = +e.target.dataset.i;
+      openDesc('Bearing / aim point', desc => {
+        currentLeg.flags[i].bearing = desc;
+        for (let j = i + 1; j < currentLeg.flags.length; j++) {
+          currentLeg.flags[j].bearing = desc;
+        }
+        render();
+      }, currentLeg.flags[i].bearing || '');
+    };
+    inp.readOnly = true;
+  });
+  legView.querySelectorAll('.dirs button').forEach(btn => {
+    btn.onclick = e => {
+      const i = +e.target.parentElement.dataset.i;
+      const dir = e.target.dataset.dir;
+      setDirection(i, dir);
+      if (i === currentLeg.flags.length - 1) {
+        openDesc('Corner note', note => {
+          currentLeg.flags[i].cornerNote = note || '';
+          newLeg();
+        });
+      }
+    };
+  });
+
+  const minL = minLegs[level] || 3;
+  const artNeed = maxArticles[level] || 3;
+  const artLeft = Math.max(0, artNeed - articlesPlaced);
+  const acuteNeed = minAcutes[level] || 0;
+  let acutesPlaced = 0;
+  legs.forEach(leg => leg.flags.forEach(f => {
+    if (f.direction === 'acL' || f.direction === 'acR') acutesPlaced++;
+  }));
+  const acuteLeft = Math.max(0, acuteNeed - acutesPlaced);
+  const distNeed = minDist[level] || 400;
+  const totalDist = legs.reduce((sum, leg) => sum + leg.flags.filter(f => !f.isStart).length * 50, 0);
+  const distLeft = Math.max(0, distNeed - totalDist);
+  let cheat = `TD${level} Legs ${legs.length}/${minL} | Dist ${totalDist}/${distNeed}m (${distLeft} left)<br>`;
+  cheat += `Art ${articlesPlaced}/${artNeed} (${artLeft} left)`;
+  if (acuteNeed > 0) cheat += ` | Acute ${acutesPlaced}/${acuteNeed} (${acuteLeft} left)`;
+  if (allowCross(level)) {
+    const crossLeft = Math.max(0, 2 - crossTracksPlaced);
+    cheat += `<br>Cross ${crossTracksPlaced}/2 (${crossLeft} left)`;
+  }
+  if (allowDiversion(level)) cheat += diversion ? (' | Div ' + diversion.side) : ' | Div ready';
+  cheat += `<br>Start: ${(legs[0]&&legs[0].start&&legs[0].start.desc)||'—'}`;
+  statusEl.innerHTML = cheat;
+  drawMud();
+  bindButtons();
+  setTimeout(() => {
+    const active = legView.querySelector('.flag.active');
+    if (active) active.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+  }, 30);
+}
+
+function getTurn(dir) {
+  if (!dir) return 0;
+  const left = dir.includes('L');
+  if (dir.startsWith('90')) return left ? -Math.PI/2 : Math.PI/2;
+  if (dir.startsWith('obt')) return left ? -Math.PI/3 : Math.PI/3;
+  if (dir.startsWith('ac')) return left ? -2*Math.PI/3 : 2*Math.PI/3;
+  return left ? -0.5 : 0.5;
+}
+
+function drawMud() {
+  const c = mudmap;
+  const w = c.width = Math.max(200, c.parentElement.clientWidth || 360);
+  const h = c.height = 160;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, w, h);
+  if (!legs || !legs.length) return;
+  const pts = [{ x: w / 2, y: h - 20 }];
+  let x = w / 2, y = h - 20, heading = -Math.PI / 2;
+  legs.forEach((leg, li) => {
+    (leg.flags || []).forEach((f, i) => {
+      if (f.isStart) return;
+      const prevX = x, prevY = y;
+      x += Math.cos(heading) * 24;
+      y += Math.sin(heading) * 24;
+      pts.push({ x, y, prevX, prevY, article: f.article, atFlag: f.article && f.article.atFlag, cross: (leg.crossTracks || []).find(ct => ct.flagId === f.id || ct.afterFlag === i) });
+    });
+    if (li < legs.length - 1 && leg.exitDir) heading += getTurn(leg.exitDir);
+  });
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  pts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+  const spanX = maxX - minX || 1, spanY = maxY - minY || 1;
+  const scale = Math.min((w - 24) / spanX, (h - 24) / spanY);
+  const ox = (w - spanX * scale) / 2 - minX * scale;
+  const oy = (h - spanY * scale) / 2 - minY * scale;
+  const sp = pts.map(p => ({ x: p.x * scale + ox, y: p.y * scale + oy, prevX: p.prevX != null ? p.prevX * scale + ox : null, prevY: p.prevY != null ? p.prevY * scale + oy : null, article: p.article, atFlag: p.atFlag, cross: p.cross }));
+  ctx.strokeStyle = '#ffeb3b';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  sp.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+  ctx.stroke();
+  sp.forEach(p => {
+    ctx.fillStyle = '#ffeb3b';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    if (p.article) {
+      const mx = p.atFlag || p.prevX == null ? p.x : (p.prevX + p.x) / 2;
+      const my = p.atFlag || p.prevY == null ? p.y : (p.prevY + p.y) / 2;
+      ctx.fillStyle = '#ff5252';
+      ctx.fillRect(mx - 4, my - 4, 8, 8);
+    }
+    if (p.cross && p.prevX != null) {
+      const mx = (p.prevX + p.x) / 2, my = (p.prevY + p.y) / 2;
+      const ang = Math.atan2(p.y - p.prevY, p.x - p.prevX) + Math.PI / 2;
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(mx + Math.cos(ang) * 16, my + Math.sin(ang) * 16);
+      ctx.lineTo(mx - Math.cos(ang) * 16, my - Math.sin(ang) * 16);
+      ctx.stroke();
+    }
+  });
+}
+
+function drawFullMap() {
+  const w = fullcanvas.width = window.innerWidth;
+  const h = fullcanvas.height = window.innerHeight - 60;
+  fctx.fillStyle = '#000'; fctx.fillRect(0,0,w,h);
+  fctx.strokeStyle = '#ffeb3b'; fctx.lineWidth = 3;
+  fctx.font = '14px sans-serif'; fctx.fillStyle = '#fff';
+  // Collect points like mud map then rescale
+  let points = [];
+  let x = w/2, y = h - 40;
+  let heading = -Math.PI/2;
+  points.push({x, y, leg:0, flag:0});
+  legs.forEach((leg, li) => {
+    const startIdx = leg.flags[0] && leg.flags[0].isStart ? 1 : 0;
+    for (let i = startIdx; i < leg.flags.length; i++) {
+      if (i === 0 && leg.flags[0].isStart) continue;
+      const len = 50;
+      const prevX = x, prevY = y;
+      x += Math.cos(heading) * len;
+      y += Math.sin(heading) * len;
+      const midX = (prevX + x) / 2;
+      const midY = (prevY + y) / 2;
+      points.push({x, y, leg: li, flag: leg.flags[i].id, 
+        article: leg.flags[i].article ? leg.flags[i].article.desc : null, 
+        articleAtFlag: leg.flags[i].article ? !!leg.flags[i].article.atFlag : false,
+        cross: leg.crossTracks.find(ct => (ct.flagId !== undefined && ct.flagId === leg.flags[i].id) || ct.afterFlag === i), 
+        bearing: leg.flags[i].bearing,
+        midX, midY,
+        dir: leg.flags[i].direction,
+        cornerNote: leg.flags[i].cornerNote || '',
+        prevBearing: i>0 ? (leg.flags[i-1].bearing || '') : ''});
+    }
+    if (li < legs.length - 1 && leg.exitDir) {
+      heading += getTurn(leg.exitDir);
+    }
+  });
+  if (points.length > 1) {
+    let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+    points.forEach(p => { minX=Math.min(minX,p.x); maxX=Math.max(maxX,p.x); minY=Math.min(minY,p.y); maxY=Math.max(maxY,p.y); });
+    const scale = Math.min((w-160)/(maxX-minX||1), (h-160)/(maxY-minY||1));
+    const ox = (w - (maxX-minX)*scale)/2 - minX*scale;
+    const oy = (h - (maxY-minY)*scale)/2 - minY*scale;
+    points = points.map(p => ({
+      ...p, 
+      x: p.x*scale + ox, 
+      y: p.y*scale + oy,
+      midX: p.midX !== undefined ? p.midX*scale + ox : undefined,
+      midY: p.midY !== undefined ? p.midY*scale + oy : undefined
+    }));
+  }
+  fctx.save();
+  fctx.translate(mapTx, mapTy);
+  fctx.scale(mapScale, mapScale);
+  fctx.lineWidth = 3 / mapScale;
+  fctx.font = (14 / mapScale) + 'px sans-serif';
+  fctx.beginPath();
+  points.forEach((p,i) => { if(i===0) fctx.moveTo(p.x,p.y); else fctx.lineTo(p.x,p.y); });
+  fctx.stroke();
+  if (diversion && points.length > 1) {
+    const s = points[0];
+    const n = points[1];
+    const baseAng = Math.atan2(n.y - s.y, n.x - s.x);
+    const ang = baseAng + (diversion.side === 'L' ? -Math.PI/6 : Math.PI/6);
+    const len = Math.max(40, 70 / mapScale);
+    fctx.strokeStyle = '#ff9800';
+    fctx.lineWidth = 3 / mapScale;
+    fctx.beginPath();
+    fctx.moveTo(s.x, s.y);
+    fctx.lineTo(s.x + Math.cos(ang)*len, s.y + Math.sin(ang)*len);
+    fctx.stroke();
+    fctx.fillStyle = '#ff9800';
+    fctx.font = (12/mapScale) + 'px sans-serif';
+    fctx.fillText('DIV 70m ' + diversion.side, s.x + Math.cos(ang)*len + 6/mapScale, s.y + Math.sin(ang)*len);
+    fctx.strokeStyle = '#ffeb3b';
+  }
+  if (level >= 7 && points.length > 1) {
+    const s = points[0];
+    const n = points[1];
+    const baseAng = Math.atan2(n.y - s.y, n.x - s.x);
+    const gateAng = baseAng + Math.PI/2;
+    const glen = 20 / mapScale;
+    fctx.strokeStyle = '#4caf50';
+    fctx.lineWidth = 4 / mapScale;
+    fctx.beginPath();
+    fctx.moveTo(s.x - Math.cos(gateAng)*glen, s.y - Math.sin(gateAng)*glen);
+    fctx.lineTo(s.x + Math.cos(gateAng)*glen, s.y + Math.sin(gateAng)*glen);
+    fctx.stroke();
+    fctx.fillStyle = '#4caf50';
+    fctx.font = (11/mapScale) + 'px sans-serif';
+    fctx.fillText('GATE 20m', s.x + 8/mapScale, s.y + 14/mapScale);
+    fctx.strokeStyle = '#ffeb3b';
+  }
+  if (legs[0] && legs[0].start && legs[0].start.desc && points.length > 0) {
+    fctx.fillStyle = '#4caf50';
+    fctx.font = '14px sans-serif';
+    fctx.fillText('START: ' + legs[0].start.desc.slice(0,25), points[0].x + 10, points[0].y + 20);
+  }
+  if (hideDesc && points.length > 0) {
+    const last = points[points.length-1];
+    fctx.fillStyle = '#ffff00';
+    fctx.font = 'bold ' + (16/mapScale) + 'px sans-serif';
+    fctx.fillText('HIDE: ' + hideDesc, last.x + 20/mapScale, last.y - 35/mapScale);
+  }
+  points.forEach((p, idx) => {
+    fctx.fillStyle = '#ffeb3b';
+    fctx.beginPath(); fctx.arc(p.x, p.y, 7/mapScale, 0, Math.PI*2); fctx.fill();
+    if (p.article) { 
+      const useMid = !p.articleAtFlag && p.midX !== undefined;
+      const mx = useMid ? p.midX : p.x;
+      const my = useMid ? p.midY : p.y;
+      fctx.fillStyle='#ff5252'; 
+      fctx.fillRect(mx-8/mapScale, my-8/mapScale, 16/mapScale, 16/mapScale); 
+      fctx.fillStyle='#fff';
+      fctx.font = 'bold ' + (13/mapScale) + 'px sans-serif';
+      const prev = points[Math.max(0, idx-1)] || p;
+      const horiz = Math.abs(p.x - prev.x) > Math.abs(p.y - prev.y);
+      const off = 22 / mapScale;
+      if (horiz) {
+        fctx.save();
+        fctx.translate(mx, my - off);
+        fctx.rotate(-Math.PI/2);
+        fctx.fillText(p.article.slice(0,14), 0, 0);
+        fctx.restore();
+      } else {
+        fctx.fillText(p.article.slice(0,14), mx + off, my);
+      }
+    }
+    if (p.cross) {
+      const mx = p.midX !== undefined ? p.midX : p.x;
+      const my = p.midY !== undefined ? p.midY : p.y;
+      fctx.strokeStyle='#00e5ff'; 
+      fctx.lineWidth=4 / mapScale;
+      const prev = points[Math.max(0, idx-1)] || p;
+      const ang = Math.atan2(p.y - prev.y, p.x - prev.x) + Math.PI/2;
+      fctx.beginPath();
+      fctx.moveTo(mx + Math.cos(ang)*36/mapScale, my + Math.sin(ang)*36/mapScale);
+      fctx.lineTo(mx - Math.cos(ang)*36/mapScale, my - Math.sin(ang)*36/mapScale);
+      fctx.stroke();
+      fctx.strokeStyle='#ffeb3b';
+      if (p.cross.desc) fctx.fillText(p.cross.desc.slice(0,12), mx+8/mapScale, my+14/mapScale);
+    }
+    if (p.bearing && p.bearing !== p.prevBearing) {
+      fctx.fillStyle = '#ffeb3b';
+      fctx.font = 'bold ' + (13/mapScale) + 'px sans-serif';
+      const prev = points[Math.max(0, idx-1)] || p;
+      const horiz = Math.abs(p.x - prev.x) > Math.abs(p.y - prev.y);
+      const off = 28 / mapScale;
+      if (horiz) {
+        fctx.save();
+        fctx.translate(p.x, p.y - off);
+        fctx.rotate(-Math.PI/2);
+        fctx.fillText('AIM: ' + p.bearing.slice(0,16), 0, 0);
+        fctx.restore();
+      } else {
+        fctx.fillText('AIM: ' + p.bearing.slice(0,16), p.x + off, p.y - off/2);
+      }
+      fctx.strokeStyle = '#fff';
+      fctx.lineWidth = 2 / mapScale;
+      fctx.beginPath();
+      fctx.arc(p.x, p.y, 12/mapScale, 0, Math.PI*2);
+      fctx.stroke();
+      fctx.strokeStyle = '#ffeb3b';
+    }
+    // Distance + cumulative at end of every leg (including final)
+    const isEndOfLeg = p.dir || (idx === points.length - 1) || (idx < points.length - 1 && points[idx+1].leg !== p.leg);
+    if (isEndOfLeg && p.leg !== undefined) {
+      const legMeters = legs[p.leg].flags.filter(f => !f.isStart).length * 50;
+      let cum = 0;
+      for (let k = 0; k <= p.leg; k++) {
+        cum += legs[k].flags.filter(f => !f.isStart).length * 50;
+      }
+      fctx.fillStyle = '#ffeb3b';
+      fctx.font = (12/mapScale) + 'px sans-serif';
+      const prev = points[Math.max(0, idx-1)] || p;
+      const next = points[Math.min(points.length-1, idx+1)] || p;
+      // Offset to the outside of the corner (away from both segments)
+      const inAng = Math.atan2(p.y - prev.y, p.x - prev.x);
+      const outAng = Math.atan2(next.y - p.y, next.x - p.x);
+      let bisect = (inAng + outAng) / 2 + Math.PI/2;
+      // Prefer the side with more open space (away from track)
+      const testOff = 40 / mapScale;
+      const side1x = p.x + Math.cos(bisect) * testOff;
+      const side1y = p.y + Math.sin(bisect) * testOff;
+      const side2x = p.x - Math.cos(bisect) * testOff;
+      const side2y = p.y - Math.sin(bisect) * testOff;
+      // Choose side farther from the midpoint of the track
+      const midTrackX = (prev.x + next.x) / 2;
+      const midTrackY = (prev.y + next.y) / 2;
+      const d1 = Math.hypot(side1x - midTrackX, side1y - midTrackY);
+      const d2 = Math.hypot(side2x - midTrackX, side2y - midTrackY);
+      const useSide = d1 > d2 ? 1 : -1;
+      const ox = p.x + Math.cos(bisect) * useSide * (42 / mapScale);
+      const oy = p.y + Math.sin(bisect) * useSide * (42 / mapScale);
+      const distTxt = legMeters + 'm (' + cum + 'm)';
+      const noteTxt = p.cornerNote ? p.cornerNote.slice(0,20) : '';
+      fctx.textAlign = 'center';
+      if (noteTxt) fctx.fillText(noteTxt, ox, oy - 8/mapScale);
+      fctx.fillText(distTxt, ox, oy + (noteTxt ? 8 : 0)/mapScale);
+      fctx.textAlign = 'left';
+    }
+  });
+  fctx.restore();
+  fullcanvas.onclick = e => {
+    const rect = fullcanvas.getBoundingClientRect();
+    let mx = e.clientX - rect.left;
+    let my = e.clientY - rect.top;
+    mx = (mx - mapTx) / (mapScale || 1);
+    my = (my - mapTy) / (mapScale || 1);
+    // Prefer flag hit for corner edit
+    let bestFlag = null, bestFlagD = 28;
+    for (let p of points) {
+      if (p.leg === undefined) continue;
+      const d = Math.hypot(mx - p.x, my - p.y);
+      if (d < bestFlagD && p.dir) {
+        bestFlagD = d;
+        bestFlag = p;
+      }
+    }
+    if (bestFlag) {
+      const leg = legs[bestFlag.leg];
+      const flag = leg.flags.find(f => f.id === bestFlag.flag) || leg.flags[leg.flags.length-1];
+      document.getElementById('fullmap').classList.remove('show');
+      document.body.style.overflow = '';
+      currentLeg = leg;
+      const dirs = ['90L','90R','obtL','obtR'];
+      if (allowAcute(level)) dirs.push('acL','acR');
+      const labels = { '90L':'90° L', '90R':'90° R', 'obtL':'Obtuse L', 'obtR':'Obtuse R', 'acL':'Acute L', 'acR':'Acute R' };
+      const modal = document.getElementById('desc-modal');
+      const title = document.getElementById('modal-title');
+      const input = document.getElementById('desc-input');
+      title.textContent = 'Change exit (current: ' + (flag.direction || 'none') + ')';
+      input.value = flag.cornerNote || '';
+      input.placeholder = 'Corner note';
+      // Inject direction buttons above the textarea
+      let bar = document.getElementById('dir-bar');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'dir-bar';
+        bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;justify-content:center;';
+        input.parentNode.insertBefore(bar, input);
+      }
+      bar.innerHTML = dirs.map(d => `<button type="button" data-dir="${d}" style="background:#4caf50;color:#000;padding:8px;">${labels[d]}</button>`).join('');
+      bar.querySelectorAll('button').forEach(b => {
+        b.onclick = () => {
+          saveState();
+          flag.direction = b.dataset.dir;
+          leg.exitDir = b.dataset.dir;
+          title.textContent = 'Exit set to ' + labels[b.dataset.dir];
+        };
+      });
+      modal.classList.add('show');
+      pendingAction = note => {
+        if (flag) flag.cornerNote = note || '';
+        bar.innerHTML = '';
+        render();
+        drawFullMap();
+        document.getElementById('fullmap').classList.add('show');
+      };
+      return;
+    }
+    // Otherwise select leg
+    let bestLeg = -1, bestD = 50;
+    for (let i = 1; i < points.length; i++) {
+      const a = points[i-1], b = points[i];
+      if (b.leg === undefined) continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len2 = dx*dx + dy*dy || 1;
+      let t = ((mx - a.x)*dx + (my - a.y)*dy) / len2;
+      t = Math.max(0, Math.min(1, t));
+      const px = a.x + t * dx, py = a.y + t * dy;
+      const d = Math.hypot(mx - px, my - py);
+      if (d < bestD) {
+        bestD = d;
+        bestLeg = b.leg;
+      }
+    }
+    if (bestLeg >= 0 && legs[bestLeg]) {
+      currentLeg = legs[bestLeg];
+      document.getElementById('fullmap').classList.remove('show');
+      document.body.style.overflow = '';
+      render();
+    }
+  };
+}
+
+let mapScale = 1, mapTx = 0, mapTy = 0;
+function setupMapGestures() {
+  const el = document.getElementById('fullcanvas');
+  let lastDist = 0, lastX = 0, lastY = 0, dragging = false;
+  el.ontouchstart = e => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastDist = Math.hypot(dx, dy);
+    } else if (e.touches.length === 1) {
+      dragging = true;
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+    }
+  };
+  el.ontouchmove = e => {
+    e.preventDefault();
+    if (e.touches.length === 2 && lastDist) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      mapScale = Math.max(0.5, Math.min(4, mapScale * (dist / lastDist)));
+      lastDist = dist;
+      drawFullMap();
+    } else if (e.touches.length === 1 && dragging && mapScale > 1) {
+      mapTx += e.touches[0].clientX - lastX;
+      mapTy += e.touches[0].clientY - lastY;
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+      drawFullMap();
+    }
+  };
+  el.ontouchend = e => {
+    lastDist = 0;
+    dragging = false;
+    if (e.changedTouches && e.changedTouches.length === 1 && mapScale <= 1.1) {
+      const t = e.changedTouches[0];
+      const fake = { clientX: t.clientX, clientY: t.clientY };
+      if (fullcanvas.onclick) fullcanvas.onclick(fake);
+    }
+  };
+  el.ondblclick = () => { mapScale = 1; mapTx = 0; mapTy = 0; drawFullMap(); };
+}
+setupMapGestures();
+
+// ---- Dictation v2: ONE continuous SpeechRecognition session shared by all popups ----
+// iOS Safari refuses to restart recognition soon after a stop/abort, so we never stop it
+// between popups. We just switch "capture" on/off; results go to whichever popup is open.
+let recognition = null;
+let recRunning = false;     // engine session alive (onstart..onend)
+let capturing = false;      // user wants text in the current popup
+let dictBase = '';
+let capturedFrom = 0;       // result index where this capture began
+let dictMsg = '';
+let lastLen = 0;            // results seen so far in this engine session
+
+function setDictUI(on, msg) {
+  const btn = document.getElementById('dictate-btn');
+  const status = document.getElementById('dictate-status');
+  if (btn) {
+    btn.textContent = on ? '⏹ Stop' : '🎤 Dictate';
+    btn.style.background = on ? '#4caf50' : '#ff5252';
+  }
+  if (status) status.textContent = msg || '';
+}
+
+function getRecognizer() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  if (recognition) return recognition;
+  const r = new SR();
+  r.continuous = true;
+  r.interimResults = true;
+  r.lang = 'en-AU';
+  r.onstart = () => { recRunning = true; if (capturing) setDictUI(true, 'Listening…'); };
+  r.onresult = e => {
+    lastLen = e.results.length;
+    if (!capturing) return;
+    const input = document.getElementById('desc-input');
+    let txt = '';
+    for (let i = capturedFrom; i < e.results.length; i++) txt += e.results[i][0].transcript;
+    input.value = (dictBase + txt).replace(/\s+/g, ' ').trimStart();
+  };
+  r.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') dictMsg = 'Allow mic in Settings';
+    else if (e.error === 'no-speech' || e.error === 'aborted') dictMsg = '';
+    else dictMsg = 'Tap Dictate again';
+  };
+  r.onend = () => {
+    recRunning = false;
+    capturedFrom = 0;
+    lastLen = 0;
+    if (capturing) { capturing = false; setDictUI(false, dictMsg || 'Mic paused – tap Dictate'); }
+    dictMsg = '';
+  };
+  recognition = r;
+  return r;
+}
+
+function startCapture() {
+  const input = document.getElementById('desc-input');
+  dictBase = input.value.trim() ? input.value.trim() + ' ' : '';
+  capturedFrom = recRunning ? lastLen : 0;
+  capturing = true;
+  setDictUI(true, recRunning ? 'Listening…' : 'Starting…');
+}
+
+// Leave the engine running; just stop putting text into the popup.
+function stopDictation() {
+  if (!capturing) return;
+  capturing = false;
+  const input = document.getElementById('desc-input');
+  if (input) input.value = input.value.trim();
+  setDictUI(false, '');
+}
+
+function setupDictate() {
+  const btn = document.getElementById('dictate-btn');
+  const input = document.getElementById('desc-input');
+  btn.onclick = () => {
+    const r = getRecognizer();
+    if (!r) { input.focus(); setDictUI(false, 'Use keyboard mic'); return; }
+    if (capturing) { stopDictation(); return; }
+    startCapture();
+    if (!recRunning) {
+      try { r.start(); }            // inside the tap, same instance every time
+      catch (err) {                 // already starting/running: just keep capturing
+        if (err && err.name !== 'InvalidStateError') { capturing = false; setDictUI(false, 'Tap Dictate again'); }
+      }
+    }
+  };
+}
+setupDictate();
+
+function openDesc(title, cb, existing) {
+  stopDictation();
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('desc-input').value = existing || '';
+  document.getElementById('desc-modal').classList.add('show');
+  pendingAction = cb;
+  const bar = document.getElementById('dir-bar');
+  if (bar) bar.innerHTML = '';
+  setDictUI(false, recRunning ? 'Mic ready – tap Dictate' : '');
+}
+document.getElementById('desc-ok').onclick = () => {
+  stopDictation();
+  const desc = document.getElementById('desc-input').value.trim();
+  const title = document.getElementById('modal-title').textContent;
+  if (!desc) return alert('Description required');
+  document.getElementById('desc-modal').classList.remove('show');
+  if (pendingAction) pendingAction(desc);
+  pendingAction = null;
+};
+document.getElementById('desc-cancel').onclick = () => {
+  stopDictation();
+  document.getElementById('desc-modal').classList.remove('show');
+  pendingAction = null;
+};
+
+document.getElementById('begin-btn').onclick = () => {
+  const sel = document.getElementById('start-level');
+  if (!sel || !sel.value) {
+    alert('Please select a TD level');
+    return;
+  }
+  level = parseInt(sel.value);
+  if (levelEl) levelEl.value = level;
+  const startPage = document.getElementById('start-page');
+  if (startPage) startPage.style.display = 'none';
+  legs = [];
+  currentLeg = null;
+  articlesPlaced = 0;
+  crossTracksPlaced = 0;
+  history = [];
+  hideDesc = '';
+  diversion = null;
+  try {
+    newLeg();
+  } catch (e) {
+    alert('Start error: ' + e.message);
+  }
+};
+document.getElementById('add-flag').onclick = addFlag;
+document.getElementById('del-flag').onclick = delFlag;
+// Re-bind buttons robustly
+function bindButtons() {
+  const finishBtn = document.getElementById('finish-btn');
+  if (finishBtn) {
+    finishBtn.onclick = function(e) {
+      e.preventDefault();
+      const minL = minLegs[level] || 3;
+      const artNeed = maxArticles[level] || 0;
+      const acuteNeed = minAcutes[level] || 0;
+      const distNeed = minDist[level] || 0;
+      const totalDist = legs.reduce((s, leg) => s + leg.flags.filter(f => !f.isStart).length * 50, 0);
+      let acutes = 0;
+      legs.forEach(leg => leg.flags.forEach(f => { if (f.direction === 'acL' || f.direction === 'acR') acutes++; }));
+      const problems = [];
+      if (legs.length < minL) problems.push('Legs ' + legs.length + '/' + minL);
+      if (totalDist < distNeed) problems.push('Distance ' + totalDist + '/' + distNeed + 'm');
+      if (articlesPlaced < artNeed) problems.push('Articles ' + articlesPlaced + '/' + artNeed);
+      if (acuteNeed > 0 && acutes < acuteNeed) problems.push('Acutes ' + acutes + '/' + acuteNeed);
+      if (problems.length) {
+        alert('Cannot finish TD' + level + ' yet:\n\n' + problems.join('\n') + '\n\nComplete these first.');
+        return;
+      }
+      openDesc('Hide / finish description', function(desc) {
+        hideDesc = desc || hideDesc;
+        drawFullMap();
+        document.getElementById('fullmap').classList.add('show');
+      }, hideDesc);
+    };
+  }
+}
+bindButtons();
+document.getElementById('undo').onclick = undo;
+document.getElementById('view-map').onclick = () => {
+  document.body.style.overflow = 'hidden';
+  drawFullMap();
+  document.getElementById('fullmap').classList.add('show');
+};
+mudmap.onclick = () => {
+  document.body.style.overflow = 'hidden';
+  drawFullMap();
+  document.getElementById('fullmap').classList.add('show');
+};
+document.getElementById('close-fullmap').onclick = () => {
+  document.body.style.overflow = '';
+  document.getElementById('fullmap').classList.remove('show');
+};
+document.getElementById('recentre-btn').onclick = () => {
+  mapScale = 1; mapTx = 0; mapTy = 0; drawFullMap();
+};
+document.getElementById('article-btn').onclick = () => {
+  if (!currentLeg) return;
+  openDesc('Article before flag (midway)', desc => placeArticle(currentLeg.flags.length-1, desc, false));
+};
+document.getElementById('article-at-btn').onclick = () => {
+  if (!currentLeg) return;
+  openDesc('Article at flag', desc => placeArticle(currentLeg.flags.length-1, desc, true));
+};
+document.getElementById('div-l-btn').onclick = () => {
+  if (!allowDiversion(level)) return;
+  openDesc('Diversion 30° L note', desc => { diversion = {side:'L', desc}; render(); });
+};
+document.getElementById('div-r-btn').onclick = () => {
+  if (!allowDiversion(level)) return;
+  openDesc('Diversion 30° R note', desc => { diversion = {side:'R', desc}; render(); });
+};
+
+levelEl.onchange = () => {
+  if (confirm('Change level and restart?')) {
+    level = parseInt(levelEl.value);
+    legs = []; currentLeg = null; articlesPlaced = 0; crossTracksPlaced = 0; history = [];
+    newLeg();
+  }
+};
+render();
+saveState();
+bindButtons();
+</script>
+</body>
+</html>
