@@ -142,7 +142,7 @@ button:active { transform: scale(0.95); }
   <div class="modal-content" style="max-height:80vh;overflow-y:auto;">
     <h3>Load saved track</h3>
     <button id="import-btn" type="button" style="width:100%;padding:10px;margin-bottom:6px;">📥 Import file</button>
-    <input id="import-file" type="file" accept=".track,.txt,.json,text/plain,application/json" style="display:none">
+    <input id="import-file" type="file" style="display:none">
     <div id="load-list"></div>
     <div style="margin-top:10px; display:flex; justify-content:flex-end;">
       <button id="load-cancel" type="button">Cancel</button>
@@ -1975,7 +1975,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '7.7';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '7.7.1';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
