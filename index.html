@@ -72,6 +72,11 @@ button:active { transform: scale(0.95); }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none;
   align-items: center; justify-content: center; z-index: 100; }
 .modal.show { display: flex; }
+/* input colour by type: blue = direction/bearing, green = location (article, corner, start, hide...) */
+#desc-modal.kind-dir #desc-input { background: #0d2b4d; border: 3px solid #42a5f5; color: #fff; }
+#desc-modal.kind-dir #modal-title { color: #64b5f6; }
+#desc-modal.kind-loc #desc-input { background: #10391a; border: 3px solid #4caf50; color: #fff; }
+#desc-modal.kind-loc #modal-title { color: #81c784; }
 .modal-content { background: #222; padding: 16px; border-radius: 12px; width: 90%;
   max-width: 400px; border: 3px solid var(--accent); }
 #fullmap { position: fixed; inset: 0; background: #000; display: none; z-index: 150;
@@ -79,9 +84,9 @@ button:active { transform: scale(0.95); }
 #fullmap.show { display: flex; }
 #fullmap canvas { flex: 1; width: 100%; touch-action: none; }
 </style>
-<meta property="og:title" content="Orienteering Tracking Tool" />
-<meta property="og:description" content="A digital tool for tracking orienteering performance and generating PDF reports for various technical difficulty levels." />
-<meta property="og:url" content="https://eager-essence-3scx.here.now/" />
+<meta property="og:title" content="Tracking Tool" />
+<meta property="og:description" content="A digital tool for managing and printing orienteering or dog tracking course maps with adjustable difficulty levels." />
+<meta property="og:url" content="https://cobalt-portal-fj35.here.now/" />
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary" /></head>
 <body>
@@ -1020,7 +1025,7 @@ function drawFullMap(pw, ph) {
       const modal = document.getElementById('desc-modal');
       const title = document.getElementById('modal-title');
       const input = document.getElementById('desc-input');
-      title.textContent = 'Change exit (current: ' + (flag.direction || 'none') + ')';
+      title.textContent = 'Change exit (current: ' + (flag.direction || 'none') + ')'; setDescKind('exit');
       input.value = flag.cornerNote || '';
       input.placeholder = 'Corner note';
       // Inject direction buttons above the textarea
@@ -1038,7 +1043,7 @@ function drawFullMap(pw, ph) {
           saveState();
           flag.direction = b.dataset.dir;
           leg.exitDir = b.dataset.dir;
-          title.textContent = 'Exit set to ' + labels[b.dataset.dir];
+          title.textContent = 'Exit set to ' + labels[b.dataset.dir]; setDescKind('corner');
         };
       });
       modal.classList.add('show');
@@ -1257,9 +1262,14 @@ function wrapText(text, x, y) {
   placeLines(wrapLines(text), x, y);
 }
 
+function setDescKind(title) {
+  const m = document.getElementById('desc-modal');
+  const dir = /bearing|aim|diversion|exit|direction/i.test(title);
+  m.classList.toggle('kind-dir', dir); m.classList.toggle('kind-loc', !dir);
+}
 function openDesc(title, cb, existing) {
   stopDictation();
-  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-title').textContent = title; setDescKind(title);
   document.getElementById('desc-input').value = existing || '';
   document.getElementById('desc-modal').classList.add('show');
   pendingAction = cb;
