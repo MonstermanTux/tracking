@@ -591,7 +591,7 @@ function render() {
     const hint = sf
       ? `Flag ${sf.isStart ? 0 : sf.id} selected: −50m deletes it, +50m adds after it`
       : 'Tap a flag to edit it (otherwise ±50m works on the last flag)';
-    const artBtns = (sf && !sf.article) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-before" style="padding:6px 10px;margin:2px;">+ Art before F${sf.isStart ? 0 : sf.id}</button><button type="button" id="chip-art-at" style="padding:6px 10px;margin:2px;">+ Art at F${sf.isStart ? 0 : sf.id}</button></div>` : '';
+    const artBtns = (sf && sf.article && !sf.isStart) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-del" style="padding:6px 10px;margin:2px;background:#f44336;color:#fff;">✕ Delete article ${sf.article.label || ''} on F${sf.id}</button></div>` : (sf && !sf.article) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-before" style="padding:6px 10px;margin:2px;">+ Art before F${sf.isStart ? 0 : sf.id}</button><button type="button" id="chip-art-at" style="padding:6px 10px;margin:2px;">+ Art at F${sf.isStart ? 0 : sf.id}</button></div>` : '';
     ban.innerHTML = '<div>LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '') + '</div>'
       + `<div style="font-size:13px;font-weight:normal;margin:2px 0;">${hint}</div><div style="overflow-x:auto;white-space:nowrap;">${chips}</div>${artBtns}`;
     ban.querySelectorAll('.flag-chip').forEach(b => b.onclick = () => {
@@ -603,6 +603,8 @@ function render() {
     });
     const ab = ban.querySelector('#chip-art-before'), aa = ban.querySelector('#chip-art-at');
     if (ab) ab.onclick = () => { const i = currentLeg.flags.indexOf(sf); openDesc('Article before this flag', d => placeArticle(i, d, false)); };
+    const ad = ban.querySelector('#chip-art-del');
+    if (ad) ad.onclick = () => { saveState(); sf.article = null; relabelArticles(); render(); drawMud(); };
     if (aa) aa.onclick = () => { const i = currentLeg.flags.indexOf(sf); openDesc('Article at this flag', d => placeArticle(i, d, true)); };
   }
   if (currentLeg.start) {
@@ -1018,11 +1020,7 @@ function drawFullMap(pw, ph) {
       const horiz = Math.abs(p.x - prev.x) > Math.abs(p.y - prev.y);
       const off = 22 / mapScale;
       if (horiz && !printMode) {
-        fctx.save();
-        fctx.translate(mx, my - off);
-        fctx.rotate(-Math.PI/2);
-        wrapText(p.article, 0, 0);
-        fctx.restore();
+        placeLinesRot(wrapLines(p.article), mx, my - off);
       } else {
         wrapText(p.article, mx + off, my);
       }
@@ -1048,11 +1046,7 @@ function drawFullMap(pw, ph) {
       const horiz = Math.abs(p.x - prev.x) > Math.abs(p.y - prev.y);
       const off = 28 / mapScale;
       if (horiz && !printMode) {
-        fctx.save();
-        fctx.translate(p.x, p.y - off);
-        fctx.rotate(-Math.PI/2);
-        wrapText('AIM: ' + p.bearing, 0, 0);
-        fctx.restore();
+        placeLinesRot(wrapLines('AIM: ' + p.bearing), p.x, p.y - off);
       } else {
         wrapText('AIM: ' + p.bearing, p.x + off, p.y - off/2);
       }
@@ -1369,6 +1363,34 @@ function placeLines(lines, x, y) {
   const left = (center ? x - w/2 : x) + best[0];
   labelBoxes.push({x: left - 2, y: y + best[1] - fs, w: w + 4, h: h + 2});
   lines.forEach((t, k) => fctx.fillText(t, x + best[0], y + best[1] + k * lh));
+}
+// Vertical (rotated -90°) labels: same overlap check, box worked out in map coordinates
+function placeLinesRot(lines, ax, ay) {
+  if (!lines.length) return;
+  const fs = parseFloat((fctx.font.match(/([\d.]+)px/) || [0, 13])[1]);
+  const lh = fs * 1.2, h = lines.length * lh;
+  const w = Math.max(...lines.map(t => fctx.measureText(t).width));
+  const step = Math.max(lh, 10 / mapScale);
+  const tries = [[0,0]];
+  for (let r = 1; r <= 10; r++) {
+    tries.push([r*step, 0], [-r*step, 0], [0, -r*step], [r*step, -r*step], [-r*step, -r*step],
+               [0, w + r*step + 20/mapScale], [r*step, w + r*step + 20/mapScale], [-r*step, w + r*step + 20/mapScale]);
+  }
+  const vx0 = -mapTx / mapScale, vy0 = -mapTy / mapScale;
+  const vx1 = (fullcanvas.width - mapTx) / mapScale, vy1 = (fullcanvas.height - mapTy) / mapScale;
+  const boxAt = t => ({x: ax + t[0] - fs - 2, y: ay + t[1] - w - 2, w: h + 4, h: w + 4});
+  let best = tries[0];
+  for (const t of tries) {
+    const b = boxAt(t);
+    const inside = b.x >= vx0 && b.y >= vy0 && b.x + b.w <= vx1 && b.y + b.h <= vy1;
+    if (inside && !boxHit(b)) { best = t; break; }
+  }
+  labelBoxes.push(boxAt(best));
+  fctx.save();
+  fctx.translate(ax + best[0], ay + best[1]);
+  fctx.rotate(-Math.PI/2);
+  lines.forEach((t, k) => fctx.fillText(t, 0, k * lh));
+  fctx.restore();
 }
 function wrapText(text, x, y) {
   const tf = fctx.getTransform();
