@@ -142,7 +142,7 @@ button:active { transform: scale(0.95); }
   <div class="modal-content" style="max-height:80vh;overflow-y:auto;">
     <h3>Load saved track</h3>
     <button id="import-btn" type="button" style="width:100%;padding:10px;margin-bottom:6px;">📥 Import file</button>
-    <input id="import-file" type="file" accept=".json,application/json" style="display:none">
+    <input id="import-file" type="file" accept=".track,.txt,.json,text/plain,application/json" style="display:none">
     <div id="load-list"></div>
     <div style="margin-top:10px; display:flex; justify-content:flex-end;">
       <button id="load-cancel" type="button">Cancel</button>
@@ -1156,11 +1156,8 @@ function drawFullMap(pw, ph) {
       const horiz = Math.abs(p.x - prev.x) > Math.abs(p.y - prev.y);
       const off = 28 / mapScale;
       const aref = {o: p.fo, k: 'aim', p};
-      if (horiz && !printMode) {
-        placeLinesRot(wrapLines(p.bearing), p.x, p.y - off, aref);
-      } else {
-        wrapText(p.bearing, p.x + off, p.y - off/2, aref);
-      }
+      // v7.7: aim note runs along the arrowhead, beside it, never upside-down
+      placeLinesAng(wrapLines(p.bearing), (bx0 + tx0)/2, (by0 + ty0)/2, Math.atan2(uy, ux), AW + 4/mapScale, aref);
       fctx.strokeStyle = '#ffeb3b';
     }
     // Distance + cumulative at end of every leg (including final)
@@ -1570,6 +1567,50 @@ function placeLinesRot(lines, ax, ay, ref) {
   lines.forEach((t, k) => fctx.fillText(t, 0, k * lh));
   fctx.restore();
 }
+// v7.7: text block rotated to angle ang, centred beside the anchor (cx,cy) at perpendicular gap; collision-checked
+function placeLinesAng(lines, cx, cy, ang, gap, ref) {
+  if (!lines.length) return;
+  if (ang > Math.PI/2 + 1e-6) ang -= Math.PI; else if (ang <= -Math.PI/2 - 1e-6) ang += Math.PI; // keep readable
+  const fs = parseFloat((fctx.font.match(/([\d.]+)px/) || [0, 13])[1]);
+  const lh = fs * 1.2, h = lines.length * lh;
+  const w = Math.max(...lines.map(t => fctx.measureText(t).width));
+  const ax = Math.cos(ang), ay = Math.sin(ang), nx = -ay, ny = ax;
+  const boxAt = c => { const xs = [], ys = [];
+    [[-w/2, -h/2], [w/2, -h/2], [w/2, h/2], [-w/2, h/2]].forEach(([u, v]) => { xs.push(c[0] + ax*u + nx*v); ys.push(c[1] + ay*u + ny*v); });
+    const x0 = Math.min(...xs), y0 = Math.min(...ys); return {x: x0 - 2, y: y0 - 2, w: Math.max(...xs) - x0 + 4, h: Math.max(...ys) - y0 + 4}; };
+  const vx0 = -mapTx / mapScale, vy0 = -mapTy / mapScale;
+  const vx1 = (fullcanvas.width - mapTx) / mapScale, vy1 = (fullcanvas.height - mapTy) / mapScale;
+  const d = gap + h/2, step = Math.max(lh, 10 / mapScale);
+  // candidates: both sides, nearest first (small perpendicular push-out, small slide along the arrow)
+  const tries = [];
+  for (let r = 0; r <= 6; r++) for (let e = 0; e <= r; e++) for (let k = -r; k <= r; k++) {
+    if (Math.max(e, Math.abs(k)) !== r) continue;
+    [1, -1].forEach(sd => tries.push([nx*sd*(d + e*step) + ax*k*step*1.5, ny*sd*(d + e*step) + ay*k*step*1.5]));
+  }
+  // collision uses small chunks along the rotated block (a diagonal block's full bounding box would hit its own track line)
+  const chunks = c => { const out = [], n = Math.max(1, Math.ceil(w / Math.max(h, 6/mapScale)));
+    for (let j = 0; j < n; j++) { const u0 = -w/2 + w*j/n, u1 = -w/2 + w*(j+1)/n, xs = [], ys = [];
+      [[u0, -h/2], [u1, -h/2], [u1, h/2], [u0, h/2]].forEach(([u, v]) => { xs.push(c[0] + ax*u + nx*v); ys.push(c[1] + ay*u + ny*v); });
+      const x0 = Math.min(...xs), y0 = Math.min(...ys); out.push({x: x0 - 1, y: y0 - 1, w: Math.max(...xs) - x0 + 2, h: Math.max(...ys) - y0 + 2}); }
+    return out; };
+  let best = tries[0];
+  const fixed = getLblOff(ref);
+  if (fixed) best = fixed;
+  else for (const t of tries) {
+    const c = [cx + t[0], cy + t[1]], b = boxAt(c);
+    const inside = b.x >= vx0 && b.y >= vy0 && b.x + b.w <= vx1 && b.y + b.h <= vy1;
+    if (inside && !chunks(c).some(boxHit)) { best = t; break; }
+  }
+  const c = [cx + best[0], cy + best[1]], bx = boxAt(c);
+  chunks(c).forEach(b => labelBoxes.push(b));
+  if (ref) labelHits.push({ref, cur: best.slice(), box: bx, ang, cx: c[0], cy: c[1]});
+  fctx.save();
+  fctx.translate(c[0], c[1]); fctx.rotate(ang);
+  const ta = fctx.textAlign; fctx.textAlign = 'center'; fctx.textBaseline = 'middle';
+  lines.forEach((t, k) => fctx.fillText(t, 0, -h/2 + lh/2 + k * lh));
+  fctx.textAlign = ta; fctx.textBaseline = 'alphabetic';
+  fctx.restore();
+}
 function wrapText(text, x, y, ref) {
   const tf = fctx.getTransform();
   // rotated labels (screen only) skip collision placement
@@ -1934,12 +1975,156 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '7.6';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '7.7';
+// ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
+// Line:  Head (optional comment): name value; name value; ...
+// value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
+const TRACK_TEXT_MAGIC = 'Tracking track file - format 2';
+const TF_NAMES = {
+  track: {level: 'level', articlesPlaced: 'articles placed', crossTracksPlaced: 'cross-tracks placed', t: 'saved at'},
+  hide: {hideDesc: 'description', trackDone: 'finished'},
+  leg: {entryDir: 'entry', exitDir: 'exit', start: 'start', diversion: 'diversion', flags: 'flags', crossTracks: 'cross-tracks', lblOff: 'label offsets'},
+  start: {type: 'type', desc: 'description', gps: 'GPS'},
+  diversion: {side: 'side', desc: 'description', atFlag: 'at flag'},
+  flag: {bearing: 'aim', direction: 'turn', cornerNote: 'corner note', gps: 'GPS', isStart: 'start flag', article: 'article', id: 'id', lblOff: 'label offsets'},
+  article: {label: 'label', atFlag: 'at the flag', desc: 'description', gps: 'GPS'},
+  cross: {afterFlag: 'after flag number', flagId: 'flag', desc: 'description', gps: 'GPS'},
+  label: {x: 'x', y: 'y'}
+};
+const tfNum = /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/;
+function tfVal(v) {
+  if (v === null) return 'none';
+  if (v === true) return 'yes';
+  if (v === false) return 'no';
+  if (typeof v === 'number') return JSON.stringify(v);
+  if (typeof v === 'string') return (/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(v) && !tfNum.test(v) && !/^(none|yes|no)$/.test(v)) ? v : JSON.stringify(v);
+  return JSON.stringify(v);
+}
+function tfParseVal(s) {
+  s = s.trim();
+  if (s === 'none') return null; if (s === 'yes') return true; if (s === 'no') return false;
+  if (/^["{\[]/.test(s)) return JSON.parse(s);
+  if (tfNum.test(s)) return Number(s);
+  if (/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(s)) return s;
+  throw new Error('bad value: ' + s);
+}
+const tfIsObj = v => v && typeof v === 'object' && !Array.isArray(v);
+const tfIsLbl = v => tfIsObj(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => /^[A-Za-z0-9_]+$/.test(k) && Array.isArray(v[k]) && v[k].length === 2 && v[k].every(n => typeof n === 'number' && isFinite(n)));
+// fields of obj (minus keys handled elsewhere) -> "name value; ..."
+function tfFields(obj, kind, skip) {
+  const M = TF_NAMES[kind] || {};
+  return Object.keys(obj).filter(k => obj[k] !== undefined && !(skip || []).includes(k))
+    .map(k => (M[k] ? M[k] : 'data ' + (/^[A-Za-z0-9_$]+$/.test(k) ? k : JSON.stringify(k))) + ' ' + tfVal(obj[k])).join('; ');
+}
+function trackToText(t, appVersion) {
+  const L = [], pad = n => String(n).padStart(2, '0'), d = new Date(t.t || Date.now());
+  const when = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + '.' + pad(d.getMinutes());
+  const fm = typeof FLAG_M !== 'undefined' ? FLAG_M : 50;
+  L.push(TRACK_TEXT_MAGIC);
+  L.push('Note: plain-English walk-through of one tracking test. The app reads every line back exactly; text in (brackets) is only a reminder. Values: none, yes, no, numbers, words or "quoted text".');
+  L.push('File: format 2; app ' + tfVal(String(appVersion)) + '; exported ' + tfVal(new Date().toISOString()));
+  const tSkip = ['legs', 'hideDesc', 'trackDone'];
+  L.push('Track (TD' + String(t.level).replace(/[():]/g, '') + ', ' + when + ', ' + (t.legs || []).length + ' legs): ' + tfFields(t, 'track', tSkip));
+  (t.legs || []).forEach((leg, li) => {
+    const flags = Array.isArray(leg.flags) ? leg.flags : null, cts = Array.isArray(leg.crossTracks) ? leg.crossTracks : null;
+    const skip = [];
+    if (flags && flags.length && flags.every(tfIsObj)) skip.push('flags');
+    if (cts && cts.length && cts.every(tfIsObj)) skip.push('crossTracks');
+    if (tfIsLbl(leg.lblOff)) skip.push('lblOff');
+    if (tfIsObj(leg.start)) skip.push('start');
+    if (tfIsObj(leg.diversion)) skip.push('diversion');
+    const nFl = flags ? flags.filter(f => f && !f.isStart).length : 0;
+    L.push('');
+    L.push('Leg ' + (li + 1) + ' (' + nFl + ' flags, ' + nFl * fm + ' m): ' + tfFields(leg, 'leg', skip));
+    if (skip.includes('start')) L.push('  Start: ' + tfFields(leg.start, 'start'));
+    if (skip.includes('diversion')) L.push('  Diversion: ' + tfFields(leg.diversion, 'diversion'));
+    if (skip.includes('lblOff')) Object.keys(leg.lblOff).forEach(k => L.push('  Leg label ' + k + ' moved: x ' + tfVal(leg.lblOff[k][0]) + '; y ' + tfVal(leg.lblOff[k][1])));
+    if (skip.includes('flags')) flags.forEach(f => {
+      const fs = [];
+      if (tfIsObj(f.article)) fs.push('article');
+      if (tfIsLbl(f.lblOff)) fs.push('lblOff');
+      const idTxt = typeof f.id === 'number' && /^-?\d+(\.\d+)?$/.test(String(f.id)) ? String(f.id) : null;
+      if (idTxt !== null) fs.push('id');
+      const cm = f.isStart ? 'start, 0 m' : (idTxt !== null ? f.id * fm + ' m' : 'flag');
+      L.push('  Flag' + (idTxt !== null ? ' ' + idTxt : '') + ' (' + cm + (f.direction ? ', corner' : '') + '): ' + tfFields(f, 'flag', fs));
+      if (fs.includes('article')) L.push('    Article: ' + tfFields(f.article, 'article'));
+      if (fs.includes('lblOff')) Object.keys(f.lblOff).forEach(k => L.push('    Label ' + k + ' moved: x ' + tfVal(f.lblOff[k][0]) + '; y ' + tfVal(f.lblOff[k][1])));
+    });
+    if (skip.includes('crossTracks')) cts.forEach(c => L.push('  Cross-track: ' + tfFields(c, 'cross')));
+  });
+  L.push('');
+  const hide = {}; ['hideDesc', 'trackDone'].forEach(k => { if (t[k] !== undefined) hide[k] = t[k]; });
+  L.push('Hide: ' + tfFields(hide, 'hide'));
+  L.push('End of track.');
+  return L.join('\n') + '\n';
+}
+function tfSplit(s) { // split on ; outside quotes/brackets
+  const out = []; let cur = '', q = false, esc = false, depth = 0;
+  for (const ch of s) {
+    if (q) { cur += ch; if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') q = false; continue; }
+    if (ch === '"') q = true; else if (ch === '{' || ch === '[') depth++; else if (ch === '}' || ch === ']') depth--;
+    if (ch === ';' && depth === 0) { out.push(cur); cur = ''; } else cur += ch;
+  }
+  if (cur.trim()) out.push(cur);
+  return out.map(x => x.trim()).filter(Boolean);
+}
+function tfParseFields(s, kind, into, ln) {
+  const M = TF_NAMES[kind] || {}, rev = {};
+  Object.keys(M).forEach(k => rev[M[k]] = k);
+  const names = Object.keys(rev).sort((a, b) => b.length - a.length);
+  tfSplit(s).forEach(f => {
+    let key = null, rest = null;
+    const dm = f.match(/^data ("(?:[^"\\]|\\.)*"|[A-Za-z0-9_$]+) (.*)$/);
+    if (dm) { key = dm[1][0] === '"' ? JSON.parse(dm[1]) : dm[1]; rest = dm[2]; }
+    else for (const n of names) if (f.startsWith(n + ' ')) { key = rev[n]; rest = f.slice(n.length + 1); break; }
+    if (key === null) throw new Error('line ' + ln + ': unknown field "' + f + '"');
+    into[key] = tfParseVal(rest);
+  });
+  return into;
+}
+function textToTrack(txt) {
+  const lines = String(txt).replace(/^\uFEFF/, '').split(/\r?\n/);
+  if ((lines[0] || '').trim() !== TRACK_TEXT_MAGIC) throw new Error('not a Tracking .track file');
+  const t = {}; let leg = null, flag = null, file = {}, ended = false;
+  lines.forEach((raw, i) => {
+    const ln = i + 1, line = raw.trim();
+    if (i === 0 || !line || ended) return;
+    if (line === 'End of track.') { ended = true; return; }
+    const m = line.match(/^([A-Za-z][A-Za-z0-9 _-]*?)\s*(\([^()]*\))?:\s?(.*)$/);
+    if (!m) throw new Error('line ' + ln + ': cannot read "' + line + '"');
+    const head = m[1], body = m[3];
+    let hm;
+    if (head === 'Note') return;
+    if (head === 'File') { tfParseFields(body, 'file', file, ln); return; }
+    if (head === 'Track') { tfParseFields(body, 'track', t, ln); t.legs = t.legs || []; return; }
+    if (head === 'Hide') { tfParseFields(body, 'hide', t, ln); leg = null; flag = null; return; }
+    if ((hm = head.match(/^Leg \d+$/))) { leg = {}; t.legs = t.legs || []; t.legs.push(leg); flag = null; tfParseFields(body, 'leg', leg, ln); return; }
+    if (!leg) throw new Error('line ' + ln + ': "' + head + '" outside a leg');
+    if (head === 'Start') { leg.start = tfParseFields(body, 'start', {}, ln); return; }
+    if (head === 'Diversion') { leg.diversion = tfParseFields(body, 'diversion', {}, ln); return; }
+    if (head === 'Cross-track') { (leg.crossTracks = leg.crossTracks || []).push(tfParseFields(body, 'cross', {}, ln)); return; }
+    if ((hm = head.match(/^Leg label ([A-Za-z0-9_]+) moved$/))) { const o = tfParseFields(body, 'label', {}, ln); (leg.lblOff = leg.lblOff || {})[hm[1]] = [o.x, o.y]; return; }
+    if ((hm = head.match(/^Flag(?: (-?\d+(?:\.\d+)?))?$/))) {
+      flag = {}; if (hm[1] !== undefined) flag.id = Number(hm[1]);
+      (leg.flags = leg.flags || []).push(flag); tfParseFields(body, 'flag', flag, ln); return;
+    }
+    if (!flag) throw new Error('line ' + ln + ': "' + head + '" outside a flag');
+    if (head === 'Article') { flag.article = tfParseFields(body, 'article', {}, ln); return; }
+    if ((hm = head.match(/^Label ([A-Za-z0-9_]+) moved$/))) { const o = tfParseFields(body, 'label', {}, ln); (flag.lblOff = flag.lblOff || {})[hm[1]] = [o.x, o.y]; return; }
+    throw new Error('line ' + ln + ': unknown line "' + head + '"');
+  });
+  if (!ended) throw new Error('file is incomplete (no "End of track.")');
+  if (file.format > 2) throw new Error('file is from a newer app version (format ' + file.format + '); update the app');
+  return t;
+}
+TF_NAMES.file = {format: 'format', appVersion: 'app', exported: 'exported'};
+
+// v7.7: Export writes ONE plain-English .track text file (format 2)
 async function exportTrack(t) {
   const d = new Date(t.t || Date.now()), pad = n => String(n).padStart(2, '0');
-  const name = `TD${t.level}-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
-  const body = JSON.stringify({format: TRACK_FORMAT, formatVersion: TRACK_FORMAT_VERSION, appVersion: APP_VERSION, exported: new Date().toISOString(), track: t}, null, 1);
-  const file = new File([body], name, {type: 'application/json'});
+  const name = `TD${t.level}-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.track`;
+  const body = trackToText(t, APP_VERSION);
+  const file = new File([body], name, {type: 'text/plain'});
   try {
     if (navigator.canShare && navigator.canShare({files: [file]})) { await navigator.share({files: [file], title: name}); return; }
   } catch (e) { if (e.name === 'AbortError') return; }
@@ -1947,10 +2132,14 @@ async function exportTrack(t) {
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 function importTrackText(txt) {
-  const o = JSON.parse(txt);
-  if (!o || o.format !== TRACK_FORMAT || !o.track) throw new Error('not a Tracking export file');
-  if (o.formatVersion > TRACK_FORMAT_VERSION) throw new Error('file is from a newer app version (format ' + o.formatVersion + '); update the app');
-  const t = o.track;
+  txt = String(txt).replace(/^\uFEFF/, '');
+  let t;
+  if (/^\s*\{/.test(txt)) { // format v1 JSON
+    const o = JSON.parse(txt);
+    if (!o || o.format !== TRACK_FORMAT || !o.track) throw new Error('not a Tracking export file');
+    if (o.formatVersion > TRACK_FORMAT_VERSION) throw new Error('file is from a newer app version (format ' + o.formatVersion + '); update the app');
+    t = o.track;
+  } else t = textToTrack(txt); // format v2 .track text
   if (!Array.isArray(t.legs) || !t.legs.length || !t.level) throw new Error('file has no track data');
   const sv = JSON.parse(localStorage.getItem('tracking-saved') || '[]');
   sv.push(t); while (sv.length > 30) sv.shift();
