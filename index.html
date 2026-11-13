@@ -540,6 +540,7 @@ function placeArticle(flagIndex, desc, atFlag) {
   const label = 'A' + (articlesPlaced + 1); // A0 = start article (not counted)
   currentLeg.flags[flagIndex].article = {desc: label + ': ' + desc, label, atFlag: !!atFlag, gps: null};
   articlesPlaced++;
+  relabelArticles();
   render();
   drawMud();
 }
@@ -584,7 +585,25 @@ function render() {
     ban.style.display = 'block';
     ban.style.background = editing ? '#ff9800' : '#333';
     ban.style.color = editing ? '#000' : '#ffeb3b';
-    ban.textContent = 'LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '');
+    if (selectedFlag && !currentLeg.flags.includes(selectedFlag)) selectedFlag = null;
+    const sf = selectedFlag;
+    const chips = currentLeg.flags.map((f, i) => `<button type="button" class="flag-chip" data-i="${i}" style="min-width:40px;padding:6px 8px;margin:2px;font-weight:bold;border-radius:6px;border:2px solid ${f === sf ? '#f44336' : '#666'};background:${f === sf ? '#f44336' : '#222'};color:#fff;">F${f.isStart ? 0 : f.id}${f.article ? '•' : ''}</button>`).join('');
+    const hint = sf
+      ? `Flag ${sf.isStart ? 0 : sf.id} selected: −50m deletes it, +50m adds after it`
+      : 'Tap a flag to edit it (otherwise ±50m works on the last flag)';
+    const artBtns = (sf && !sf.article) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-before" style="padding:6px 10px;margin:2px;">+ Art before F${sf.isStart ? 0 : sf.id}</button><button type="button" id="chip-art-at" style="padding:6px 10px;margin:2px;">+ Art at F${sf.isStart ? 0 : sf.id}</button></div>` : '';
+    ban.innerHTML = '<div>LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '') + '</div>'
+      + `<div style="font-size:13px;font-weight:normal;margin:2px 0;">${hint}</div><div style="overflow-x:auto;white-space:nowrap;">${chips}</div>${artBtns}`;
+    ban.querySelectorAll('.flag-chip').forEach(b => b.onclick = () => {
+      const f = currentLeg.flags[+b.dataset.i];
+      selectedFlag = (selectedFlag === f) ? null : f;
+      render();
+      const card = legView.querySelector('.flag.selected');
+      if (card) card.scrollIntoView({block: 'center', behavior: 'smooth'});
+    });
+    const ab = ban.querySelector('#chip-art-before'), aa = ban.querySelector('#chip-art-at');
+    if (ab) ab.onclick = () => { const i = currentLeg.flags.indexOf(sf); openDesc('Article before this flag', d => placeArticle(i, d, false)); };
+    if (aa) aa.onclick = () => { const i = currentLeg.flags.indexOf(sf); openDesc('Article at this flag', d => placeArticle(i, d, true)); };
   }
   if (currentLeg.start) {
     const startDiv = document.createElement('div');
@@ -661,7 +680,8 @@ function render() {
         const wasStart = currentLeg.flags[i].isStart;
         currentLeg.flags[i].article = null;
         if (!wasStart) articlesPlaced = Math.max(0, articlesPlaced - 1);
-        render();
+        relabelArticles();
+        render(); drawMud();
       }
     });
   });
@@ -1171,6 +1191,7 @@ function drawFullMap(pw, ph) {
     }
     if (bestLeg >= 0 && legs[bestLeg]) {
       currentLeg = legs[bestLeg];
+      selectedFlag = null;
       document.getElementById('fullmap').classList.remove('show');
       document.body.style.overflow = '';
       render();
