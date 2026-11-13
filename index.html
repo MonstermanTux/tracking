@@ -79,9 +79,9 @@ button:active { transform: scale(0.95); }
 #fullmap.show { display: flex; }
 #fullmap canvas { flex: 1; width: 100%; touch-action: none; }
 </style>
-<meta property="og:title" content="Tracking" />
-<meta property="og:description" content="A digital tool for managing and documenting dog tracking training sessions with PDF export capabilities." />
-<meta property="og:url" content="https://lilac-clover-dc8q.here.now/" />
+<meta property="og:title" content="Orienteering Tracking Tool" />
+<meta property="og:description" content="A digital tool for tracking orienteering performance and generating PDF reports for various technical difficulty levels." />
+<meta property="og:url" content="https://eager-essence-3scx.here.now/" />
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary" /></head>
 <body>
@@ -182,14 +182,162 @@ let trackDone = false;
 function setTrackDone(v) { trackDone = v; const b = document.getElementById('pdf-btn'); if (b) b.style.display = v ? 'inline-block' : 'none'; }
 let diversion = null;
 
-const maxArticles = {1:1,2:2,3:2,4:3,5:3,6:3,7:3,8:3,9:4,10:4};
-const minArticles = {1:0,2:1,3:1,4:2,5:2,6:2,7:2,8:2,9:3,10:3};
-const minLegs = {1:3,2:3,3:3,4:5,5:5,6:6,7:7,8:8,9:9,10:9};
-const minAcutes = {1:0,2:0,3:0,4:0,5:0,6:1,7:2,8:2,9:3,10:3};
-const minDist = {1:400,2:800,3:800,4:1000,5:1000,6:1200,7:1200,8:1200,9:1200,10:1200};
-const allowAcute = l => l >= 6;
-const allowCross = l => l >= 5 && l <= 9;
-const allowDiversion = l => l === 10;
+// Dogs Australia (ANKC Ltd) — Rules for the conduct of Tracking Trials
+// Effective 1 January 2024
+// https://www.dogsaustralia.org.au/media/10068/11-da-tracking-01-01-2024.pdf
+// All level-dependent checks read from RULES. A rule change is a one-place edit.
+// FLAG_M is a plotting convention only (the rulebook does not fix flag spacing).
+const FLAG_M = 50;
+const RULES = {
+  source: 'Dogs Australia (ANKC Ltd)',
+  title: 'Rules for the conduct of Tracking Trials',
+  edition: 'Effective 1 January 2024',
+  url: 'https://www.dogsaustralia.org.au/media/10068/11-da-tracking-01-01-2024.pdf',
+  flagM: FLAG_M,
+  articleMinFromTurnM: 30,
+  startClearanceM: 15,
+  gateWidthM: 20,
+  cross: { count: 2, angleDeg: 90, armM: 30, armMinM: 20, minFromTurnM: 30 },
+  // Diversion plotted at 30° / 70m (as approved). Rulebook: V from start, min 50m; angle not specified.
+  diversion: { minLengthM: 50, lengthM: 70, angleDeg: 30 },
+  levels: {
+    1:  { title:'TD',     person:'known',   lengthM:400,  minLegs:3, maxLegs:3,    minChanges:2, maxChanges:2,    articles:1, articlesIndicate:0, startArticleOnTrack:true,  acutes:0, allowAcute:false, firstMustNotBeAcute:false, maxConsecutiveAcutes:null, allowCross:false, crossCount:0, crossNote:'', allowDiversion:false, startType:'flag', firstCornerMinM:100, ageMin:20,  ageMax:45 },
+    2:  { title:'TD',     person:'known',   lengthM:800,  minLegs:3, maxLegs:null, minChanges:2, maxChanges:null, articles:2, articlesIndicate:1, startArticleOnTrack:true,  acutes:0, allowAcute:false, firstMustNotBeAcute:false, maxConsecutiveAcutes:null, allowCross:false, crossCount:0, crossNote:'', allowDiversion:false, startType:'flag', firstCornerMinM:0,   ageMin:30,  ageMax:60 },
+    3:  { title:'TD',     person:'unknown', lengthM:800,  minLegs:3, maxLegs:null, minChanges:2, maxChanges:null, articles:2, articlesIndicate:1, startArticleOnTrack:true,  acutes:0, allowAcute:false, firstMustNotBeAcute:false, maxConsecutiveAcutes:null, allowCross:false, crossCount:0, crossNote:'', allowDiversion:false, startType:'flag', firstCornerMinM:0,   ageMin:30,  ageMax:60 },
+    4:  { title:'TDX',    person:'unknown', lengthM:1000, minLegs:5, maxLegs:null, minChanges:4, maxChanges:null, articles:3, articlesIndicate:2, startArticleOnTrack:true,  acutes:0, allowAcute:false, firstMustNotBeAcute:false, maxConsecutiveAcutes:null, allowCross:false, crossCount:0, crossNote:'', allowDiversion:false, startType:'flag', firstCornerMinM:0,   ageMin:60,  ageMax:120 },
+    5:  { title:'TDX',    person:'unknown', lengthM:1000, minLegs:5, maxLegs:null, minChanges:4, maxChanges:null, articles:3, articlesIndicate:2, startArticleOnTrack:true,  acutes:0, allowAcute:false, firstMustNotBeAcute:false, maxConsecutiveAcutes:null, allowCross:true,  crossCount:2, crossNote:'one or two unknown persons', allowDiversion:false, startType:'flag', firstCornerMinM:0,   ageMin:60,  ageMax:120 },
+    6:  { title:'TDX',    person:'unknown', lengthM:1200, minLegs:6, maxLegs:null, minChanges:5, maxChanges:null, articles:3, articlesIndicate:2, startArticleOnTrack:true,  acutes:1, allowAcute:true,  firstMustNotBeAcute:true,  maxConsecutiveAcutes:null, allowCross:true,  crossCount:2, crossNote:'one or two unknown persons', allowDiversion:false, startType:'flag', firstCornerMinM:0,   ageMin:60,  ageMax:180 },
+    7:  { title:'T Ch',   person:'unknown', lengthM:1200, minLegs:7, maxLegs:null, minChanges:6, maxChanges:null, articles:3, articlesIndicate:2, startArticleOnTrack:false, acutes:2, allowAcute:true,  firstMustNotBeAcute:false, maxConsecutiveAcutes:null, allowCross:true,  crossCount:2, crossNote:'one or two unknown persons', allowDiversion:false, startType:'gate', firstCornerMinM:100, ageMin:90,  ageMax:180 },
+    8:  { title:'T Ch',   person:'unknown', lengthM:1200, minLegs:8, maxLegs:null, minChanges:7, maxChanges:null, articles:3, articlesIndicate:2, startArticleOnTrack:false, acutes:2, allowAcute:true,  firstMustNotBeAcute:false, maxConsecutiveAcutes:null, allowCross:true,  crossCount:2, crossNote:'one or two unknown persons', allowDiversion:false, startType:'gate', firstCornerMinM:100, ageMin:120, ageMax:180 },
+    9:  { title:'T Gr Ch',person:'unknown', lengthM:1200, minLegs:9, maxLegs:null, minChanges:8, maxChanges:null, articles:4, articlesIndicate:3, startArticleOnTrack:false, acutes:3, allowAcute:true,  firstMustNotBeAcute:false, maxConsecutiveAcutes:2,    allowCross:true,  crossCount:2, crossNote:'one unknown person and a dog', allowDiversion:false, startType:'gate', firstCornerMinM:100, ageMin:150, ageMax:210 },
+    10: { title:'T Gr Ch',person:'unknown', lengthM:1200, minLegs:9, maxLegs:null, minChanges:8, maxChanges:null, articles:4, articlesIndicate:3, startArticleOnTrack:false, acutes:3, allowAcute:true,  firstMustNotBeAcute:false, maxConsecutiveAcutes:2,    allowCross:false, crossCount:0, crossNote:'', allowDiversion:true,  startType:'gate', firstCornerMinM:100, ageMin:180, ageMax:240 }
+  }
+};
+function R(l) { return RULES.levels[l] || RULES.levels[1]; }
+function allowAcute(l) { return !!R(l).allowAcute; }
+function allowCross(l) { return !!R(l).allowCross; }
+function allowDiversion(l) { return !!R(l).allowDiversion; }
+function isAcuteDir(dir) { return dir === 'acL' || dir === 'acR'; }
+function legLength(leg) { return (leg.flags || []).filter(f => !f.isStart).length * FLAG_M; }
+function totalDist() { return legs.reduce((s, leg) => s + legLength(leg), 0); }
+function countAcutes() {
+  let n = 0;
+  legs.forEach(leg => (leg.flags || []).forEach(f => { if (isAcuteDir(f.direction)) n++; }));
+  return n;
+}
+function turnDirs() {
+  const dirs = [];
+  legs.forEach(leg => {
+    let d = null;
+    const flags = leg.flags || [];
+    for (let i = flags.length - 1; i >= 0; i--) {
+      if (flags[i].direction && !flags[i].isStart) { d = flags[i].direction; break; }
+    }
+    if (!d) d = leg.exitDir || null;
+    if (d) dirs.push(d);
+  });
+  return dirs;
+}
+function maxAcuteRun(dirs) {
+  let max = 0, run = 0;
+  (dirs || turnDirs()).forEach(d => {
+    if (isAcuteDir(d)) { run++; if (run > max) max = run; }
+    else run = 0;
+  });
+  return max;
+}
+function minDistToTurnM(leg, flagIndex, atFlag, opts) {
+  const f = leg.flags[flagIndex];
+  if (!f) return 0;
+  const pos = atFlag ? f.id * FLAG_M : (f.id - 0.5) * FLAG_M;
+  const turns = [];
+  const legIdx = legs.indexOf(leg);
+  if (legIdx > 0) turns.push(0);
+  const lastI = leg.flags.length - 1;
+  const isFinal = legIdx === legs.length - 1;
+  leg.flags.forEach((fl, i) => {
+    if (fl.isStart) return;
+    const isLast = i === lastI;
+    if (fl.direction) turns.push(fl.id * FLAG_M);
+    else if (isLast && (!isFinal || (opts && opts.treatCurrentEndAsTurn))) turns.push(fl.id * FLAG_M);
+  });
+  if (!turns.length) return Infinity;
+  return Math.min.apply(null, turns.map(t => Math.abs(pos - t)));
+}
+function articleCheck(leg, flagIndex, atFlag, opts) {
+  const r = R(level);
+  const f = leg && leg.flags[flagIndex];
+  if (!f) return 'No flag';
+  if (f.isStart) {
+    if (!atFlag) return 'No track before the start flag';
+    if (!r.startArticleOnTrack) return 'For TD' + level + ' the start article goes in a scent bag, not on the track';
+    return null;
+  }
+  const d = minDistToTurnM(leg, flagIndex, atFlag, opts);
+  if (d < RULES.articleMinFromTurnM) {
+    return 'Articles cannot be on a turn or within ' + RULES.articleMinFromTurnM + 'm of a turn (this spot is ' + d + 'm away)';
+  }
+  return null;
+}
+function placementBlockedByTurn(leg, flagIndex) {
+  const turnM = leg.flags[flagIndex].id * FLAG_M;
+  for (const f of leg.flags) {
+    if (!f.article) continue;
+    const pos = f.article.atFlag ? f.id * FLAG_M : (f.id - 0.5) * FLAG_M;
+    if (Math.abs(pos - turnM) < RULES.articleMinFromTurnM) {
+      return 'Move the article at Flag ' + f.id + ' first — articles must be at least ' + RULES.articleMinFromTurnM + 'm from a turn';
+    }
+  }
+  for (const c of (leg.crossTracks || [])) {
+    const fl = (c.afterFlag != null && leg.flags[c.afterFlag]) || leg.flags.find(x => x.id === c.flagId);
+    if (!fl) continue;
+    const pos = (fl.id - 0.5) * FLAG_M;
+    if (Math.abs(pos - turnM) < RULES.cross.minFromTurnM) {
+      return 'Move the cross track first — it must be at least ' + RULES.cross.minFromTurnM + 'm from a turn';
+    }
+  }
+  return null;
+}
+function rulesProblems() {
+  const r = R(level);
+  const problems = [];
+  const dist = totalDist();
+  const acutes = countAcutes();
+  if (r.maxLegs && legs.length > r.maxLegs) problems.push('Legs ' + legs.length + ' (TD' + level + ' has exactly ' + r.maxLegs + ')');
+  if (legs.length < r.minLegs) problems.push('Legs ' + legs.length + '/' + r.minLegs);
+  if (dist < r.lengthM) problems.push('Distance ' + dist + '/' + r.lengthM + 'm');
+  if (articlesPlaced < r.articles) problems.push('Articles ' + articlesPlaced + '/' + r.articles);
+  if (r.acutes > 0 && acutes < r.acutes) problems.push('Acutes ' + acutes + '/' + r.acutes);
+  if (r.allowCross && crossTracksPlaced !== r.crossCount) problems.push('Cross tracks ' + crossTracksPlaced + '/' + r.crossCount);
+  if (r.allowDiversion && !legs.some(l => l.diversion)) problems.push('Diversion not set');
+  if (r.firstCornerMinM && legs[0] && (legs.length > 1 || (legs[0].flags || []).some(f => f.direction))) {
+    const n = legLength(legs[0]);
+    if (n < r.firstCornerMinM) problems.push('First corner ' + n + 'm (min ' + r.firstCornerMinM + 'm)');
+  }
+  if (r.firstMustNotBeAcute && isAcuteDir(turnDirs()[0])) problems.push('First change of direction must not be acute');
+  if (r.maxConsecutiveAcutes && maxAcuteRun() > r.maxConsecutiveAcutes) {
+    problems.push('No more than ' + r.maxConsecutiveAcutes + ' acute turns in a row');
+  }
+  if (r.startArticleOnTrack) {
+    const has = legs[0] && (legs[0].flags || []).some(f => f.isStart && f.article);
+    if (!has) problems.push('Start article required');
+  }
+  legs.forEach((leg, li) => {
+    (leg.flags || []).forEach((f, i) => {
+      if (!f.article) return;
+      const err = articleCheck(leg, i, !!f.article.atFlag, { treatCurrentEndAsTurn: li < legs.length - 1 });
+      if (err) problems.push('Flag ' + f.id + ': ' + err);
+    });
+    (leg.crossTracks || []).forEach(c => {
+      const idx = c.afterFlag;
+      if (idx == null || !leg.flags[idx]) return;
+      const d = minDistToTurnM(leg, idx, false, { treatCurrentEndAsTurn: li < legs.length - 1 });
+      if (d < RULES.cross.minFromTurnM) problems.push('Cross too close to a turn (' + d + 'm, min ' + RULES.cross.minFromTurnM + 'm)');
+    });
+  });
+  return problems;
+}
+
 
 function saveState() {
   setTrackDone(false);
@@ -207,6 +355,16 @@ function undo() {
 }
 
 function newLeg() {
+  const rules = R(level);
+  if (rules.maxLegs && legs.length >= rules.maxLegs) {
+    return alert('TD' + level + ' has exactly ' + rules.maxLegs + ' legs (' + rules.maxChanges + ' changes of direction)');
+  }
+  if (legs.length === 1 && currentLeg && rules.firstCornerMinM) {
+    const n = legLength(currentLeg);
+    if (n < rules.firstCornerMinM) {
+      return alert('First change of direction must be at least ' + rules.firstCornerMinM + 'm from the start (this leg is ' + n + 'm)');
+    }
+  }
   saveState();
   let exitDir = null;
   if (currentLeg && currentLeg.flags.length > 0) {
@@ -219,7 +377,7 @@ function newLeg() {
     if (!exitDir) exitDir = currentLeg.exitDir;
     currentLeg.exitDir = exitDir;
   }
-  const isGate = level >= 7;
+  const isGate = R(level).startType === 'gate';
   const isFirst = legs.length === 0;
   currentLeg = {
     id: legs.length + 1,
@@ -236,7 +394,7 @@ function newLeg() {
   render();
   drawMud();
   if (isFirst) {
-    openDesc(isGate ? 'Start gate description (20m line)' : 'Start flag description (Flag 0)', desc => {
+    openDesc(isGate ? 'Start gate description (' + RULES.gateWidthM + 'm line)' : 'Start flag description (Flag 0)', desc => {
       if (currentLeg && currentLeg.start) currentLeg.start.desc = desc;
       render();
     });
@@ -287,13 +445,27 @@ function delFlag() {
 }
 
 function setDirection(flagIndex, dir) {
+  const rules = R(level);
+  if (isAcuteDir(dir) && !rules.allowAcute) return alert('Acute turns are not used on TD' + level);
+  if (isAcuteDir(dir) && rules.firstMustNotBeAcute && legs.length === 1) {
+    return alert('The first change of direction on TD' + level + ' must be 30–90° (not acute)');
+  }
+  if (isAcuteDir(dir) && rules.maxConsecutiveAcutes) {
+    if (maxAcuteRun(turnDirs().concat([dir])) > rules.maxConsecutiveAcutes) {
+      return alert('No more than ' + rules.maxConsecutiveAcutes + ' acute turns in a row on TD' + level);
+    }
+  }
+  const blocked = placementBlockedByTurn(currentLeg, flagIndex);
+  if (blocked) return alert(blocked);
   saveState();
   currentLeg.flags[flagIndex].direction = dir;
   render();
 }
 
 function placeArticle(flagIndex, desc, atFlag) {
-  if (articlesPlaced >= (maxArticles[level] || 3)) return alert('Article quota reached');
+  if (articlesPlaced >= (R(level).articles || 0)) return alert('Article quota reached');
+  const artErr = articleCheck(currentLeg, flagIndex, !!atFlag);
+  if (artErr) return alert(artErr);
   saveState();
   const label = 'A' + (articlesPlaced + 1);
   currentLeg.flags[flagIndex].article = {desc: label + ': ' + desc, label, atFlag: !!atFlag, gps: null};
@@ -304,7 +476,10 @@ function placeArticle(flagIndex, desc, atFlag) {
 
 function placeCross(flagIndex, desc) {
   if (!allowCross(level)) return;
-  if (currentLeg.crossTracks.length >= 2) return alert('Max 2 cross tracks on this leg');
+  const need = R(level).crossCount;
+  if (crossTracksPlaced >= need) return alert('This test has ' + need + ' cross tracks on the whole track');
+  const d = minDistToTurnM(currentLeg, flagIndex, false);
+  if (d < RULES.cross.minFromTurnM) return alert('A cross track must be at least ' + RULES.cross.minFromTurnM + 'm from a turn (this spot is ' + d + 'm)');
   saveState();
   const flagId = currentLeg.flags[flagIndex] ? currentLeg.flags[flagIndex].id : flagIndex;
   currentLeg.crossTracks.push({ afterFlag: flagIndex, flagId: flagId, desc, gps: null });
@@ -338,7 +513,7 @@ function render() {
   currentLeg.flags.forEach((f, i) => {
     const div = document.createElement('div');
     div.className = 'flag' + (i === currentLeg.flags.length-1 ? ' active' : '');
-    const label = f.isStart ? 'Flag 0 (0m)' : `Flag ${f.id} (${f.id * 50}m)`;
+    const label = f.isStart ? 'Flag 0 (0m)' : `Flag ${f.id} (${f.id * FLAG_M}m)`;
     const bearingField = f.isStart ? '' : `<div class="bearing" data-i="${i}">${f.bearing || ''}</div>`;
     const isLast = i === currentLeg.flags.length - 1;
     const ct = currentLeg.crossTracks.find(c => c.afterFlag === i);
@@ -358,13 +533,13 @@ function render() {
         : `<button type="button" class="add-art-before" data-i="${i}">+ Art before</button> <button type="button" class="add-art-at" data-i="${i}">+ Art at flag</button>`}
       <button type="button" class="drop-gps" data-i="${i}">📍 Drop GPS${f.gps ? ' ✓' : ''}</button>
       ${f.gps ? `<div style="font-size:12px;color:#8bc34a;">${f.gps.lat.toFixed(5)}, ${f.gps.lng.toFixed(5)}</div>` : ''}
-      ${allowCross(level) ? (ct ? `<div class="cross-stub edit-cross" data-i="${i}">Cross: ${ct.desc} <button type="button" class="del-cross" data-i="${i}">✕</button></div>` : (currentLeg.crossTracks.length < 2 ? `<button type="button" class="add-cross" data-i="${i}">+ Cross before</button>` : '')) : ''}
+      ${allowCross(level) ? (ct ? `<div class="cross-stub edit-cross" data-i="${i}">Cross: ${ct.desc} <button type="button" class="del-cross" data-i="${i}">✕</button></div>` : (crossTracksPlaced < R(level).crossCount ? `<button type="button" class="add-cross" data-i="${i}">+ Cross before</button>` : '')) : ''}
     `;
     legView.appendChild(div);
     if (ct) {
       const stub = document.createElement('div');
       stub.className = 'cross-stub';
-      stub.innerHTML = `←30m ←10m X 10m→ 30m→<br><small>${ct.desc}</small>`;
+      stub.innerHTML = `←${RULES.cross.armM}m X ${RULES.cross.armM}m→ (min ${RULES.cross.armMinM}m, ${RULES.cross.angleDeg}°)<br><small>${ct.desc}</small>`;
       legView.appendChild(stub);
     }
   });
@@ -403,7 +578,7 @@ function render() {
       e.preventDefault();
       e.stopPropagation();
       const i = +btn.dataset.i;
-      if (currentLeg.crossTracks.length >= 2) return alert('Max 2 cross tracks on this leg');
+      if (crossTracksPlaced >= R(level).crossCount) return alert('This test has ' + R(level).crossCount + ' cross tracks on the whole track');
       openDesc('Cross track before this flag', desc => placeCross(i, desc));
     });
   });
@@ -478,26 +653,41 @@ function render() {
     };
   });
 
-  const minL = minLegs[level] || 3;
-  const artNeed = maxArticles[level] || 3;
+  const rules = R(level);
+  const minL = rules.minLegs;
+  const artNeed = rules.articles;
   const artLeft = Math.max(0, artNeed - articlesPlaced);
-  const acuteNeed = minAcutes[level] || 0;
-  let acutesPlaced = 0;
-  legs.forEach(leg => leg.flags.forEach(f => {
-    if (f.direction === 'acL' || f.direction === 'acR') acutesPlaced++;
-  }));
+  const acuteNeed = rules.acutes;
+  const acutesPlaced = countAcutes();
   const acuteLeft = Math.max(0, acuteNeed - acutesPlaced);
-  const distNeed = minDist[level] || 400;
-  const totalDist = legs.reduce((sum, leg) => sum + leg.flags.filter(f => !f.isStart).length * 50, 0);
-  const distLeft = Math.max(0, distNeed - totalDist);
-  let cheat = `TD${level} Legs ${legs.length}/${minL} | Dist ${totalDist}/${distNeed}m (${distLeft} left)<br>`;
+  const distNeed = rules.lengthM;
+  const distNow = totalDist();
+  const distLeft = Math.max(0, distNeed - distNow);
+  const legsLabel = rules.maxLegs ? (legs.length + '/' + rules.maxLegs) : (legs.length + '/' + minL);
+  const person = rules.person.charAt(0).toUpperCase() + rules.person.slice(1);
+  let cheat = `TD${level} ${person} | Legs ${legsLabel} | Dist ${distNow}/${distNeed}m (${distLeft} left)<br>`;
   cheat += `Art ${articlesPlaced}/${artNeed} (${artLeft} left)`;
+  if (rules.articlesIndicate) cheat += `, indicate ${rules.articlesIndicate}+`;
   if (acuteNeed > 0) cheat += ` | Acute ${acutesPlaced}/${acuteNeed} (${acuteLeft} left)`;
-  if (allowCross(level)) {
-    const crossLeft = Math.max(0, 2 - crossTracksPlaced);
-    cheat += `<br>Cross ${crossTracksPlaced}/2 (${crossLeft} left)`;
+  cheat += ` | Age ${rules.ageMin}–${rules.ageMax} min`;
+  if (rules.allowCross) {
+    const need = rules.crossCount;
+    const crossLeft = Math.max(0, need - crossTracksPlaced);
+    cheat += `<br>Cross ${crossTracksPlaced}/${need} (${crossLeft} left)`;
+    if (rules.crossNote) cheat += ` – ${rules.crossNote}`;
   }
-  if (allowDiversion(level)) cheat += diversion ? (' | Div ' + diversion.side) : ' | Div ready';
+  if (rules.allowDiversion) {
+    const dv = legs.find(l => l.diversion);
+    cheat += dv ? (' | Div ' + dv.diversion.side + ' (from start)') : (' | Div ready (V from start, min ' + RULES.diversion.minLengthM + 'm)');
+  }
+  if (rules.startArticleOnTrack) {
+    const has = legs[0] && (legs[0].flags || []).some(f => f.isStart && f.article);
+    if (!has) cheat += '<br>Start article needed';
+  }
+  if (rules.firstCornerMinM && legs[0] && legs.length < 2) {
+    const n = legLength(legs[0]);
+    if (n && n < rules.firstCornerMinM) cheat += `<br>First corner min ${rules.firstCornerMinM}m (this leg ${n}m)`;
+  }
   cheat += `<br>Start: ${(legs[0]&&legs[0].start&&legs[0].start.desc)||'—'}`;
   statusEl.innerHTML = cheat;
   drawMud();
@@ -588,7 +778,7 @@ function drawFullMap(pw, ph) {
     const startIdx = leg.flags[0] && leg.flags[0].isStart ? 1 : 0;
     for (let i = startIdx; i < leg.flags.length; i++) {
       if (i === 0 && leg.flags[0].isStart) continue;
-      const len = 50;
+      const len = FLAG_M;
       const prevX = x, prevY = y;
       x += Math.cos(heading) * len;
       y += Math.sin(heading) * len;
@@ -602,6 +792,7 @@ function drawFullMap(pw, ph) {
         midX, midY,
         dir: leg.flags[i].direction,
         cornerNote: leg.flags[i].cornerNote || '',
+        div: leg.diversion && leg.diversion.atFlag === leg.flags[i].id ? leg.diversion : null,
         prevBearing: i>0 ? (leg.flags[i-1].bearing || '') : ''});
     }
     if (li < legs.length - 1 && leg.exitDir) {
@@ -638,24 +829,32 @@ function drawFullMap(pw, ph) {
   fctx.beginPath();
   points.forEach((p,i) => { if(i===0) fctx.moveTo(p.x,p.y); else fctx.lineTo(p.x,p.y); });
   fctx.stroke();
-  if (diversion && points.length > 1) {
-    const s = points[0];
-    const n = points[1];
-    const baseAng = Math.atan2(n.y - s.y, n.x - s.x);
-    const ang = baseAng + (diversion.side === 'L' ? -Math.PI/6 : Math.PI/6);
-    const len = Math.max(40, 70 / mapScale);
-    fctx.strokeStyle = '#ff9800';
-    fctx.lineWidth = 3 / mapScale;
+  // diversion: 30° off the first leg from the start flag, ~70 m long
+  const dvLeg = legs.find(l => l.diversion);
+  if (dvLeg && points.length > 1) [points[0]].forEach(p => {
+    p = Object.assign({}, p, {div: dvLeg.diversion});
+    const q = points[1];
+    const seg = Math.hypot(q.x - p.x, q.y - p.y) || 40;
+    const baseAng = Math.atan2(q.y - p.y, q.x - p.x);
+    const ang = baseAng + (p.div.side === 'L' ? -1 : 1) * RULES.diversion.angleDeg * Math.PI/180;
+    const len = Math.max(seg * (RULES.diversion.lengthM / FLAG_M), 85 / mapScale); // plotted diversion length, min size so it stands out
+    const ex = p.x + Math.cos(ang)*len, ey = p.y + Math.sin(ang)*len;
+    fctx.strokeStyle = '#ff9800'; fctx.lineWidth = 3 / mapScale;
+    fctx.setLineDash([10/mapScale, 6/mapScale]);
+    fctx.beginPath(); fctx.moveTo(p.x, p.y); fctx.lineTo(ex, ey); fctx.stroke();
+    fctx.setLineDash([]);
+    // arrow head
     fctx.beginPath();
-    fctx.moveTo(s.x, s.y);
-    fctx.lineTo(s.x + Math.cos(ang)*len, s.y + Math.sin(ang)*len);
+    fctx.moveTo(ex, ey);
+    fctx.lineTo(ex - Math.cos(ang - 0.4)*12/mapScale, ey - Math.sin(ang - 0.4)*12/mapScale);
+    fctx.moveTo(ex, ey);
+    fctx.lineTo(ex - Math.cos(ang + 0.4)*12/mapScale, ey - Math.sin(ang + 0.4)*12/mapScale);
     fctx.stroke();
-    fctx.fillStyle = '#ff9800';
-    fctx.font = (12/mapScale) + 'px sans-serif';
-    fctx.fillText('DIV 70m ' + diversion.side, s.x + Math.cos(ang)*len + 6/mapScale, s.y + Math.sin(ang)*len);
+    fctx.fillStyle = '#ff9800'; fctx.font = 'bold ' + (13/mapScale) + 'px sans-serif';
+    wrapText('DIVERSION ' + RULES.diversion.angleDeg + '° ' + (p.div.side === 'L' ? 'LEFT' : 'RIGHT') + ' ' + RULES.diversion.lengthM + 'm' + (p.div.desc ? ': ' + p.div.desc : ''), ex + 6/mapScale, ey + 4/mapScale);
     fctx.strokeStyle = '#ffeb3b';
-  }
-  if (level >= 7 && points.length > 1) {
+  });
+  if (R(level).startType === 'gate' && points.length > 1) {
     const s = points[0];
     const n = points[1];
     const baseAng = Math.atan2(n.y - s.y, n.x - s.x);
@@ -669,7 +868,7 @@ function drawFullMap(pw, ph) {
     fctx.stroke();
     fctx.fillStyle = '#4caf50';
     fctx.font = (11/mapScale) + 'px sans-serif';
-    wrapText('GATE 20m', s.x + 8/mapScale, s.y + 14/mapScale);
+    wrapText('GATE ' + RULES.gateWidthM + 'm', s.x + 8/mapScale, s.y + 14/mapScale);
     fctx.strokeStyle = '#ffeb3b';
   }
   if (legs[0] && legs[0].start && legs[0].start.desc && points.length > 0) {
@@ -746,10 +945,10 @@ function drawFullMap(pw, ph) {
     // Distance + cumulative at end of every leg (including final)
     const isEndOfLeg = p.dir || (idx === points.length - 1) || (idx < points.length - 1 && points[idx+1].leg !== p.leg);
     if (isEndOfLeg && p.leg !== undefined) {
-      const legMeters = legs[p.leg].flags.filter(f => !f.isStart).length * 50;
+      const legMeters = legLength(legs[p.leg]);
       let cum = 0;
       for (let k = 0; k <= p.leg; k++) {
-        cum += legs[k].flags.filter(f => !f.isStart).length * 50;
+        cum += legLength(legs[k]);
       }
       fctx.fillStyle = '#ffeb3b';
       fctx.font = (12/mapScale) + 'px sans-serif';
@@ -1115,18 +1314,7 @@ function bindButtons() {
   if (finishBtn) {
     finishBtn.onclick = function(e) {
       e.preventDefault();
-      const minL = minLegs[level] || 3;
-      const artNeed = maxArticles[level] || 0;
-      const acuteNeed = minAcutes[level] || 0;
-      const distNeed = minDist[level] || 0;
-      const totalDist = legs.reduce((s, leg) => s + leg.flags.filter(f => !f.isStart).length * 50, 0);
-      let acutes = 0;
-      legs.forEach(leg => leg.flags.forEach(f => { if (f.direction === 'acL' || f.direction === 'acR') acutes++; }));
-      const problems = [];
-      if (legs.length < minL) problems.push('Legs ' + legs.length + '/' + minL);
-      if (totalDist < distNeed) problems.push('Distance ' + totalDist + '/' + distNeed + 'm');
-      if (articlesPlaced < artNeed) problems.push('Articles ' + articlesPlaced + '/' + artNeed);
-      if (acuteNeed > 0 && acutes < acuteNeed) problems.push('Acutes ' + acutes + '/' + acuteNeed);
+      const problems = rulesProblems();
       if (problems.length) {
         alert('Cannot finish TD' + level + ' yet:\n\n' + problems.join('\n') + '\n\nComplete these first.');
         return;
@@ -1150,9 +1338,9 @@ function makeTrackPdf(info) {
   const M = 35; // small page margin
   g.font = 'bold 40px sans-serif'; g.textAlign = 'left';
   g.fillText('Tracking Test – TD' + level, M, 62);
-  const totalDist = legs.reduce((s, leg) => s + leg.flags.filter(f => !f.isStart).length * 50, 0);
+  const distNow = totalDist();
   g.font = '24px sans-serif'; g.textAlign = 'right';
-  g.fillText(legs.length + ' legs · ' + totalDist + ' m · ' + articlesPlaced + ' articles', PW - M, 62);
+  g.fillText(legs.length + ' legs · ' + distNow + ' m · ' + articlesPlaced + ' articles', PW - M, 62);
   g.textAlign = 'center'; g.font = 'bold 24px sans-serif';
   g.fillText('Date: ' + (info.date || '____________'), PW / 2, 62);
   g.textAlign = 'left';
@@ -1248,21 +1436,21 @@ document.getElementById('close-fullmap').onclick = () => {
 document.getElementById('recentre-btn').onclick = () => {
   mapScale = 1; mapTx = 0; mapTy = 0; drawFullMap();
 };
-document.getElementById('article-btn').onclick = () => {
+if (document.getElementById('article-btn')) document.getElementById('article-btn').onclick = () => {
   if (!currentLeg) return;
   openDesc('Article before flag (midway)', desc => placeArticle(currentLeg.flags.length-1, desc, false));
 };
-document.getElementById('article-at-btn').onclick = () => {
+if (document.getElementById('article-at-btn')) document.getElementById('article-at-btn').onclick = () => {
   if (!currentLeg) return;
   openDesc('Article at flag', desc => placeArticle(currentLeg.flags.length-1, desc, true));
 };
 document.getElementById('div-l-btn').onclick = () => {
   if (!allowDiversion(level)) return;
-  openDesc('Diversion 30° L note', desc => { diversion = {side:'L', desc}; render(); });
+  openDesc('Diversion ' + RULES.diversion.angleDeg + '° L note', desc => { saveState(); currentLeg.diversion = {side:'L', desc, atFlag: currentLeg.flags[currentLeg.flags.length-1].id}; diversion = currentLeg.diversion; render(); });
 };
 document.getElementById('div-r-btn').onclick = () => {
   if (!allowDiversion(level)) return;
-  openDesc('Diversion 30° R note', desc => { diversion = {side:'R', desc}; render(); });
+  openDesc('Diversion ' + RULES.diversion.angleDeg + '° R note', desc => { saveState(); currentLeg.diversion = {side:'R', desc, atFlag: currentLeg.flags[currentLeg.flags.length-1].id}; diversion = currentLeg.diversion; render(); });
 };
 
 levelEl.onchange = () => {
