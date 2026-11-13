@@ -99,6 +99,7 @@ button:active { transform: scale(0.95); }
     <option value="10">TD10</option>
   </select>
   <button id="begin-btn" style="font-size:18px;padding:14px 28px;background:#ffeb3b;color:#000;">Begin Track</button>
+  <button id="load-btn2" type="button" style="font-size:16px;padding:10px 24px;margin-top:10px;">📂 Load saved track</button>
 </div>
 <header>
   <h1>Tracking</h1>
@@ -124,6 +125,17 @@ button:active { transform: scale(0.95); }
   <button id="undo">Undo</button>
   <button id="new-track">Save &amp; New</button>
   <button id="view-map">Full Map</button>
+  <button id="load-btn" type="button">Load</button>
+</div>
+
+<div id="load-modal" class="modal" style="z-index:300;">
+  <div class="modal-content" style="max-height:80vh;overflow-y:auto;">
+    <h3>Load saved track</h3>
+    <div id="load-list"></div>
+    <div style="margin-top:10px; display:flex; justify-content:flex-end;">
+      <button id="load-cancel" type="button">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <div id="desc-modal" class="modal">
@@ -1684,6 +1696,53 @@ function gotoLeg(d) {
     el.addEventListener('touchend', end, {passive: true});
   });
 })();
+
+// v7.0: load a saved track (current track is saved to the list first)
+function stashCurrent() {
+  autoSave();
+  const cur = localStorage.getItem('tracking-autosave');
+  if (!cur || !legs.length) return;
+  const saved = JSON.parse(localStorage.getItem('tracking-saved') || '[]');
+  saved.push(JSON.parse(cur));
+  while (saved.length > 30) saved.shift();
+  localStorage.setItem('tracking-saved', JSON.stringify(saved));
+}
+function openLoad() {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem('tracking-saved') || '[]'); } catch (e) {}
+  const list = document.getElementById('load-list');
+  if (!saved.length) list.innerHTML = '<p>No saved tracks yet. Save &amp; New stores them here.</p>';
+  else list.innerHTML = saved.map((t, i) => ({t, i})).reverse().map(({t, i}) => {
+    const d = new Date(t.t), fl = (t.legs || []).reduce((n, l) => n + Math.max(0, (l.flags || []).length - (l.flags && l.flags[0] && l.flags[0].isStart ? 1 : 0)), 0);
+    const when = d.toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'}) + ' ' + d.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
+    return `<button type="button" class="load-item" data-i="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;padding:10px;">TD${t.level} · ${(t.legs || []).length} legs · ${fl * FLAG_M}m<br><small>${when}${t.trackDone ? ' · finished' : ''}</small></button>`;
+  }).join('');
+  list.querySelectorAll('.load-item').forEach(b => b.onclick = () => loadSaved(+b.dataset.i));
+  document.getElementById('load-modal').classList.add('show');
+}
+function loadSaved(i) {
+  try {
+    if (legs.length && !confirm('Save the current track to the list and open this one?')) return;
+    stashCurrent();
+    const saved = JSON.parse(localStorage.getItem('tracking-saved') || '[]');
+    const idx = legs.length ? i : i; // index unaffected: stash appends at the end
+    const t = saved.splice(idx, 1)[0];
+    if (!t) return;
+    localStorage.setItem('tracking-saved', JSON.stringify(saved));
+    level = t.level; levelEl.value = level;
+    legs = t.legs; currentLeg = legs[legs.length - 1];
+    articlesPlaced = t.articlesPlaced || 0; crossTracksPlaced = t.crossTracksPlaced || 0;
+    hideDesc = t.hideDesc || ''; diversion = (legs.find(l => l.diversion) || {}).diversion || null;
+    history = []; selectedFlag = null;
+    document.getElementById('load-modal').classList.remove('show');
+    document.getElementById('fullmap').classList.remove('show');
+    document.getElementById('start-page').style.display = 'none';
+    render(); saveState(); setTrackDone(!!t.trackDone); drawMud(); autoSave();
+  } catch (e) { alert('Could not load: ' + e.message); }
+}
+document.getElementById('load-btn').onclick = openLoad;
+document.getElementById('load-btn2').onclick = openLoad;
+document.getElementById('load-cancel').onclick = () => document.getElementById('load-modal').classList.remove('show');
 </script>
 </body>
 </html>
