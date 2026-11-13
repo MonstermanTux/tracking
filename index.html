@@ -84,11 +84,7 @@ button:active { transform: scale(0.95); }
 #fullmap.show { display: flex; }
 #fullmap canvas { flex: 1; width: 100%; touch-action: none; }
 </style>
-<meta property="og:title" content="Tracking Tool" />
-<meta property="og:description" content="A digital tool for managing and printing orienteering or dog tracking course maps with adjustable difficulty levels." />
-<meta property="og:url" content="https://cobalt-portal-fj35.here.now/" />
-<meta property="og:type" content="website" />
-<meta name="twitter:card" content="summary" /></head>
+</head>
 <body>
 <div id="start-page" style="position:fixed;inset:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;">
   <h1 style="color:#ffeb3b;margin-bottom:20px;">Tracking</h1>
@@ -394,6 +390,11 @@ function newLeg() {
     diversion: null,
     entryDir: exitDir
   };
+  if (isFirst && R(level).startArticleOnTrack) {
+    // TD1-6: start article sits on the start flag automatically as A0 (counts toward the article total)
+    currentLeg.flags[0].article = {desc: 'A0: Start article', label: 'A0', atFlag: true, gps: null};
+    articlesPlaced++;
+  }
   legs.push(currentLeg);
   // Draw immediately so mud map shows Flag 1 before any further UI
   render();
@@ -472,7 +473,7 @@ function placeArticle(flagIndex, desc, atFlag) {
   const artErr = articleCheck(currentLeg, flagIndex, !!atFlag);
   if (artErr) return alert(artErr);
   saveState();
-  const label = 'A' + (articlesPlaced + 1);
+  const label = 'A' + (articlesPlaced + (R(level).startArticleOnTrack ? 0 : 1)); // A0 is the start article on low levels
   currentLeg.flags[flagIndex].article = {desc: label + ': ' + desc, label, atFlag: !!atFlag, gps: null};
   articlesPlaced++;
   render();
@@ -720,7 +721,8 @@ function drawMud() {
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, w, h);
   if (!legs || !legs.length) return;
-  const pts = [{ x: w / 2, y: h - 20 }];
+  const f0 = legs[0].flags && legs[0].flags[0];
+  const pts = [{ x: w / 2, y: h - 20, article: f0 && f0.isStart ? f0.article : null, atFlag: true }];
   let x = w / 2, y = h - 20, heading = -Math.PI / 2;
   legs.forEach((leg, li) => {
     (leg.flags || []).forEach((f, i) => {
@@ -778,7 +780,8 @@ function drawFullMap(pw, ph) {
   let points = [];
   let x = w/2, y = h - 40;
   let heading = -Math.PI/2;
-  points.push({x, y, leg:0, flag:0});
+  const st0 = legs[0] && legs[0].flags[0] && legs[0].flags[0].isStart ? legs[0].flags[0] : null;
+  points.push({x, y, leg:0, flag:0, article: st0 && st0.article ? st0.article.desc : null, articleAtFlag: true});
   legs.forEach((leg, li) => {
     const startIdx = leg.flags[0] && leg.flags[0].isStart ? 1 : 0;
     for (let i = startIdx; i < leg.flags.length; i++) {
@@ -880,6 +883,12 @@ function drawFullMap(pw, ph) {
     fctx.fillStyle = '#4caf50';
     fctx.font = '14px sans-serif';
     wrapText('START: ' + legs[0].start.desc, points[0].x + 10, points[0].y + 20);
+  }
+  if (!R(level).startArticleOnTrack && points.length > 0) {
+    // TD7-10: judge holds the start article in a sealed scent bag
+    fctx.fillStyle = '#ffffff';
+    fctx.font = 'italic bold ' + (13/mapScale) + 'px sans-serif';
+    wrapText('Start article: sealed bag (judge)', points[0].x + 10/mapScale, points[0].y + 38/mapScale);
   }
   if (hideDesc && points.length > 0) {
     const last = points[points.length-1];
