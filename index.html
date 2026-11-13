@@ -966,7 +966,7 @@ function drawFullMap(pw, ph) {
     fctx.lineTo(ex - Math.cos(ang + 0.4)*12/mapScale, ey - Math.sin(ang + 0.4)*12/mapScale);
     fctx.stroke();
     fctx.fillStyle = '#ff9800'; fctx.font = 'bold ' + (13/mapScale) + 'px sans-serif';
-    wrapText('DIVERSION ' + (p.div.side === 'L' ? 'LEFT' : 'RIGHT') + ' ' + RULES.diversion.lengthM + 'm' + (p.div.desc ? ': ' + p.div.desc : ''), ex + 6/mapScale, ey + 4/mapScale);
+    wrapText('DIVERSION ' + (p.div.side === 'L' ? 'LEFT' : 'RIGHT') + (p.div.desc ? ': ' + p.div.desc : ''), ex + 6/mapScale, ey + 4/mapScale);
     fctx.strokeStyle = '#ffeb3b';
   });
   if (R(level).startType === 'gate' && points.length > 1) {
