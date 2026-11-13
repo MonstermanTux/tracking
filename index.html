@@ -592,8 +592,8 @@ function render() {
       ? `Flag ${sf.isStart ? 0 : sf.id} selected: −50m deletes it, +50m adds after it`
       : 'Tap a flag to edit it (otherwise ±50m works on the last flag)';
     const artBtns = (sf && sf.article && !sf.isStart) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-del" style="padding:6px 10px;margin:2px;background:#f44336;color:#fff;">✕ Delete article ${sf.article.label || ''} on F${sf.id}</button></div>` : (sf && !sf.article) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-before" style="padding:6px 10px;margin:2px;">+ Art before F${sf.isStart ? 0 : sf.id}</button><button type="button" id="chip-art-at" style="padding:6px 10px;margin:2px;">+ Art at F${sf.isStart ? 0 : sf.id}</button></div>` : '';
-    ban.innerHTML = '<div>LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '') + '</div>'
-      + `<div style="font-size:13px;font-weight:normal;margin:2px 0;">${hint}</div><div style="overflow-x:auto;white-space:nowrap;">${chips}</div>${artBtns}`;
+    ban.innerHTML = '<div>' + (li > 0 ? '‹ ' : '') + 'LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '') + (li < legs.length - 1 ? ' ›' : '') + '</div>'
+      + `<div style="font-size:13px;font-weight:normal;margin:2px 0;">${hint}</div><div id="chip-row" style="overflow-x:auto;white-space:nowrap;">${chips}</div>${artBtns}`;
     ban.querySelectorAll('.flag-chip').forEach(b => b.onclick = () => {
       const f = currentLeg.flags[+b.dataset.i];
       selectedFlag = (selectedFlag === f) ? null : f;
@@ -1655,6 +1655,35 @@ if (restored && restored.legs && restored.legs.length) {
   saveState();
 }
 bindButtons();
+
+// v6.9: swipe the leg page right = previous leg, left = next leg
+function gotoLeg(d) {
+  const li = legs.indexOf(currentLeg), ni = li + d;
+  if (li < 0 || ni < 0 || ni >= legs.length) return false;
+  currentLeg = legs[ni]; selectedFlag = null; render();
+  window.scrollTo({top: 0});
+  return true;
+}
+(() => {
+  let sx = 0, sy = 0, ok = false;
+  const start = e => {
+    const t = e.touches[0];
+    ok = e.touches.length === 1 && !e.target.closest('textarea, input, .flag-chip, #chip-row');
+    sx = t.clientX; sy = t.clientY;
+  };
+  const end = e => {
+    if (!ok) return; ok = false;
+    const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+    if (document.querySelector('#desc-modal.show, #fullmap.show')) return;
+    gotoLeg(dx > 0 ? -1 : 1);
+  };
+  ['leg-view', 'leg-banner'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', start, {passive: true});
+    el.addEventListener('touchend', end, {passive: true});
+  });
+})();
 </script>
 </body>
 </html>
