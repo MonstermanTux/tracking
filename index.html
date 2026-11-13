@@ -34,6 +34,8 @@ button:active { transform: scale(0.95); }
   background: #222; border: 3px solid var(--accent); border-radius: 12px;
   display: flex; flex-direction: column; gap: 6px; }
 .flag.active { border-color: #fff; box-shadow: 0 0 8px var(--accent); }
+.flag.selected { border-color: #f44336 !important; box-shadow: 0 0 12px #f44336; }
+.sel-note { color: #f44336; font-weight: bold; font-size: 13px; }
 .bearing { font-size: 18px; padding: 6px; background: #000; border: 2px solid var(--accent); white-space: pre-wrap; word-wrap: break-word; min-height: 1.4em; text-align: left; }
 .bearing:empty::before { content: "Bearing / aim point"; color: #777; }
 .article-mark, .cross-stub, .flag div { white-space: pre-wrap; word-wrap: break-word; }
@@ -108,6 +110,7 @@ button:active { transform: scale(0.95); }
   </select>
 </header>
 <div id="main">
+  <div id="leg-banner" style="display:none;text-align:center;font-weight:bold;font-size:20px;padding:6px;border-radius:6px;margin:4px 0;"></div>
   <div id="leg-view"></div>
   <div id="mudmap-container"><canvas id="mudmap" width="140" height="140"></canvas></div>
 </div>
@@ -427,6 +430,20 @@ function newLeg() {
 
 function addFlag() {
   if (!currentLeg) { newLeg(); return; }
+  const si = selectedFlag ? currentLeg.flags.indexOf(selectedFlag) : -1;
+  if (si >= 0 && si < currentLeg.flags.length - 1) {
+    // insert a flag after the selected one; later flags move out 50m
+    saveState();
+    const sel = currentLeg.flags[si];
+    const nf = { id: sel.isStart ? 1 : sel.id + 1, bearing: currentLeg.flags[si + 1].bearing || sel.bearing || '', direction: null, article: null, gps: null };
+    for (let j = si + 1; j < currentLeg.flags.length; j++) currentLeg.flags[j].id += 1;
+    currentLeg.flags.splice(si + 1, 0, nf);
+    currentLeg.crossTracks.forEach(ct => { if (ct.afterFlag > si) { ct.afterFlag += 1; if (ct.flagId !== undefined) ct.flagId += 1; } });
+    if (currentLeg.diversion && currentLeg.diversion.atFlag >= nf.id) currentLeg.diversion.atFlag += 1;
+    selectedFlag = nf;
+    render();
+    return;
+  }
   saveState();
   const last = currentLeg.flags[currentLeg.flags.length-1];
   const nextId = last.isStart ? 1 : (last.id + 1);
@@ -454,17 +471,44 @@ function addFlag() {
   }
 }
 
+let selectedFlag = null; // flag tapped in the leg list or on the map; −50m deletes it
+function relabelArticles() {
+  let n = 0;
+  legs.forEach(leg => (leg.flags || []).forEach(f => {
+    if (!f.article || f.isStart) return;
+    n++;
+    const lab = 'A' + n;
+    f.article.desc = f.article.desc.replace(/^A\d+: /, lab + ': ');
+    f.article.label = lab;
+  }));
+  articlesPlaced = n;
+}
 function delFlag() {
   if (!currentLeg || !currentLeg.flags.length) return;
-  const last = currentLeg.flags[currentLeg.flags.length - 1];
-  if (last.isStart) return alert('Cannot delete start');
+  let idx = currentLeg.flags.length - 1;
+  const si = selectedFlag ? currentLeg.flags.indexOf(selectedFlag) : -1;
+  if (si >= 0) idx = si;
+  const f = currentLeg.flags[idx];
+  if (f.isStart) return alert('Cannot delete start');
+  if (si >= 0 && idx < currentLeg.flags.length - 1 && !confirm('Delete Flag ' + f.id + ' (' + f.id * FLAG_M + 'm) on leg ' + (legs.indexOf(currentLeg) + 1) + '? Later flags move up 50m.')) return;
   saveState();
-  if (last.article) articlesPlaced = Math.max(0, articlesPlaced - 1);
-  currentLeg.flags.pop();
-  if (currentLeg.flags.length <= (currentLeg.flags[0] && currentLeg.flags[0].isStart ? 1 : 0) && legs.length > 1) {
-    legs.pop();
-    currentLeg = legs[legs.length - 1];
+  currentLeg.flags.splice(idx, 1);
+  // later flags close the gap
+  for (let j = idx; j < currentLeg.flags.length; j++) currentLeg.flags[j].id -= 1;
+  currentLeg.crossTracks = currentLeg.crossTracks.filter(ct => ct.afterFlag !== idx).map(ct => {
+    if (ct.afterFlag > idx) { ct.afterFlag -= 1; if (ct.flagId !== undefined) ct.flagId -= 1; }
+    return ct;
+  });
+  crossTracksPlaced = legs.reduce((n, l) => n + (l.crossTracks || []).length, 0);
+  if (currentLeg.diversion && currentLeg.diversion.atFlag > f.id) currentLeg.diversion.atFlag -= 1;
+  selectedFlag = null;
+  const li = legs.indexOf(currentLeg);
+  const minFlags = currentLeg.flags[0] && currentLeg.flags[0].isStart ? 1 : 0;
+  if (currentLeg.flags.length <= minFlags && legs.length > 1 && li > 0) {
+    legs.splice(li, 1);
+    currentLeg = legs[Math.min(li, legs.length - 1)];
   }
+  relabelArticles();
   render();
 }
 
@@ -533,6 +577,15 @@ function render() {
   }
 
   legView.innerHTML = '';
+  { // always-visible leg banner (outside the scrolling list)
+    const li = legs.indexOf(currentLeg);
+    const editing = li >= 0 && li < legs.length - 1;
+    const ban = document.getElementById('leg-banner');
+    ban.style.display = 'block';
+    ban.style.background = editing ? '#ff9800' : '#333';
+    ban.style.color = editing ? '#000' : '#ffeb3b';
+    ban.textContent = 'LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '');
+  }
   if (currentLeg.start) {
     const startDiv = document.createElement('div');
     startDiv.className = 'flag';
@@ -545,7 +598,12 @@ function render() {
 
   currentLeg.flags.forEach((f, i) => {
     const div = document.createElement('div');
-    div.className = 'flag' + (i === currentLeg.flags.length-1 ? ' active' : '');
+    div.className = 'flag' + (i === currentLeg.flags.length-1 ? ' active' : '') + (f === selectedFlag ? ' selected' : '');
+    div.addEventListener('click', e => {
+      if (e.target.closest('button, .bearing, .edit-art, input, textarea')) return;
+      selectedFlag = (selectedFlag === f) ? null : f;
+      render();
+    });
     const label = f.isStart ? 'Flag 0 (0m)' : `Flag ${f.id} (${f.id * FLAG_M}m)`;
     const bearingField = f.isStart ? '' : `<div class="bearing" data-i="${i}">${f.bearing || ''}</div>`;
     const isLast = i === currentLeg.flags.length - 1;
@@ -558,7 +616,7 @@ function render() {
       </div>
       ${f.direction ? `<div>Leaving: <b>${f.direction}</b></div>` : ''}`;
     div.innerHTML = `
-      <strong>${label}</strong>
+      <strong>${label}</strong>${f === selectedFlag ? ' <span class="sel-note">SELECTED – −50m deletes it, +50m adds after it</span>' : ''}
       ${bearingField}
       ${dirButtons}
       ${f.article
@@ -1045,6 +1103,7 @@ function drawFullMap(pw, ph) {
       document.getElementById('fullmap').classList.remove('show');
       document.body.style.overflow = '';
       currentLeg = leg;
+      selectedFlag = flag;
       const fIdx = leg.flags.indexOf(flag);
       const editBearing = () => {
         if (bar) bar.innerHTML = '';
