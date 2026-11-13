@@ -222,10 +222,28 @@ function allowDiversion(l) { return !!R(l).allowDiversion; }
 function isAcuteDir(dir) { return dir === 'acL' || dir === 'acR'; }
 function legLength(leg) { return (leg.flags || []).filter(f => !f.isStart).length * FLAG_M; }
 function totalDist() { return legs.reduce((s, leg) => s + legLength(leg), 0); }
+// Recount corners after every edit: each finished leg has exactly one corner, on its last flag.
+// A turn type or corner note left on an earlier flag (after adding/deleting flags) moves to the corner.
+function normalizeTrack() {
+  legs.forEach((leg, li) => {
+    const flags = leg.flags || [];
+    if (li === legs.length - 1) return; // leg in progress: leave as entered
+    let d = null, note = '';
+    for (let i = flags.length - 1; i >= 0; i--) {
+      const f = flags[i];
+      if (f.isStart) continue;
+      if (!d && f.direction) d = f.direction;
+      if (!note && f.cornerNote) note = f.cornerNote;
+    }
+    d = d || leg.exitDir || null;
+    const last = flags[flags.length - 1];
+    flags.forEach(f => { if (f !== last) { f.direction = null; f.cornerNote = f.isStart ? f.cornerNote : ''; } });
+    if (last && !last.isStart) { last.direction = d; last.cornerNote = last.cornerNote || note; }
+    leg.exitDir = d;
+  });
+}
 function countAcutes() {
-  let n = 0;
-  legs.forEach(leg => (leg.flags || []).forEach(f => { if (isAcuteDir(f.direction)) n++; }));
-  return n;
+  return turnDirs().filter(isAcuteDir).length;
 }
 function turnDirs() {
   const dirs = [];
@@ -452,20 +470,22 @@ function delFlag() {
 
 function setDirection(flagIndex, dir) {
   const rules = R(level);
-  if (isAcuteDir(dir) && !rules.allowAcute) return alert('Acute turns are not used on TD' + level);
+  if (isAcuteDir(dir) && !rules.allowAcute) { alert('Acute turns are not used on TD' + level); return false; }
   if (isAcuteDir(dir) && rules.firstMustNotBeAcute && legs.length === 1) {
-    return alert('The first change of direction on TD' + level + ' must be 30–90° (not acute)');
+    alert('The first change of direction on TD' + level + ' must be 30–90° (not acute)'); return false;
   }
   if (isAcuteDir(dir) && rules.maxConsecutiveAcutes) {
-    if (maxAcuteRun(turnDirs().concat([dir])) > rules.maxConsecutiveAcutes) {
-      return alert('No more than ' + rules.maxConsecutiveAcutes + ' acute turns in a row on TD' + level);
+    const prior = legs.slice(0, -1).map(l => l.exitDir).filter(Boolean);
+    if (maxAcuteRun(prior.concat([dir])) > rules.maxConsecutiveAcutes) {
+      alert('No more than ' + rules.maxConsecutiveAcutes + ' acute turns in a row on TD' + level); return false;
     }
   }
   const blocked = placementBlockedByTurn(currentLeg, flagIndex);
-  if (blocked) return alert(blocked);
+  if (blocked) { alert(blocked); return false; }
   saveState();
   currentLeg.flags[flagIndex].direction = dir;
   render();
+  return true;
 }
 
 function placeArticle(flagIndex, desc, atFlag) {
@@ -499,6 +519,7 @@ function autoSave() {
   } catch (e) {}
 }
 function render() {
+  try { normalizeTrack(); } catch (e) {}
   setTimeout(autoSave, 0);
   level = parseInt(levelEl.value) || level;
   document.getElementById('div-l-btn').style.display = allowDiversion(level) ? 'inline-block' : 'none';
@@ -656,7 +677,7 @@ function render() {
     btn.onclick = e => {
       const i = +e.target.parentElement.dataset.i;
       const dir = e.target.dataset.dir;
-      setDirection(i, dir);
+      if (!setDirection(i, dir)) return; // refused: don't open the corner note or start a new leg
       if (i === currentLeg.flags.length - 1) {
         openDesc('Corner note', note => {
           currentLeg.flags[i].cornerNote = note || '';
