@@ -254,7 +254,55 @@ function sha256Hex(msg) {
   }
   return H.map(x => x.toString(16).padStart(8, '0')).join('');
 }
-function isUnlocked() { try { return localStorage.getItem(UNLOCK_KEY) === UNLOCK_HASH; } catch (e) { return false; } }
+// ===== v7.9 SIGNED_CODE_V1: expiring unlock codes signed with ECDSA P-256 (the app holds ONLY the public key) =====
+// Code = base32( [1][expiry day: 2 bytes, days since 1 Jan 2024][id: 3 bytes] + 64-byte P-256 signature ), grouped by 8 with dashes.
+const TC_PUB = {"kty":"EC","crv":"P-256","x":"Yh0ioslH3F5EKrEAv7RLrIu_O1JVoWRT7-VL3FmqQKA","y":"foG_ZeYFKdzr9RPfJ8uOS8c5RnKF-jRGaicy3tVwaEg"};
+const TC_B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+const TC_EPOCH = Date.UTC(2024, 0, 1);
+const TC_DOMAIN = 'TRACKCODE1';
+const TC_MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function tcB32enc(bytes) {
+  let bits = 0, val = 0, out = '';
+  for (const b of bytes) { val = (val << 8) | b; bits += 8; while (bits >= 5) { out += TC_B32[(val >>> (bits - 5)) & 31]; bits -= 5; } val &= (1 << bits) - 1; }
+  if (bits > 0) out += TC_B32[(val << (5 - bits)) & 31];
+  return out;
+}
+function tcB32dec(str) {
+  const s = String(str).toUpperCase().replace(/[^A-Z2-7]/g, '');
+  let bits = 0, val = 0; const out = [];
+  for (const ch of s) { val = (val << 5) | TC_B32.indexOf(ch); bits += 5; if (bits >= 8) { out.push((val >>> (bits - 8)) & 255); bits -= 8; } val &= (1 << bits) - 1; }
+  return new Uint8Array(out);
+}
+function tcDayOf(y, m, d) { return Math.round((Date.UTC(y, m, d) - TC_EPOCH) / 86400000); }
+function tcFmtDay(n) { const d = new Date(TC_EPOCH + n * 86400000); return String(d.getUTCDate()).padStart(2, '0') + ' ' + TC_MON[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); }
+function tcToday() { const d = new Date(Date.now()); return tcDayOf(d.getFullYear(), d.getMonth(), d.getDate()); }
+function tcSignedBytes(payload) { const dom = new TextEncoder().encode(TC_DOMAIN), m = new Uint8Array(dom.length + payload.length); m.set(dom); m.set(payload, dom.length); return m; }
+function tcGroup(s) { return s.match(/.{1,8}/g).join('-'); }
+
+const SIGNED_KEY = 'tracking-signed-unlock';
+async function tcVerify(code) {
+  const b = tcB32dec(code);
+  if (b.length !== 70 || b[0] !== 1) return null;
+  if (!(window.crypto && crypto.subtle)) throw new Error('this page cannot check signed codes (needs https)');
+  const payload = b.slice(0, 6), sig = b.slice(6);
+  const key = await crypto.subtle.importKey('jwk', TC_PUB, {name: 'ECDSA', namedCurve: 'P-256'}, false, ['verify']);
+  const good = await crypto.subtle.verify({name: 'ECDSA', hash: 'SHA-256'}, key, sig, tcSignedBytes(payload));
+  if (!good) return null;
+  return {exp: (payload[1] << 8) | payload[2], id: Array.from(payload.slice(3, 6)).map(x => x.toString(16).padStart(2, '0')).join('')};
+}
+function signedUnlock() {
+  let o = null; try { o = JSON.parse(localStorage.getItem(SIGNED_KEY) || 'null'); } catch (e) {}
+  if (!o || typeof o.exp !== 'number') return null;
+  if (o.exp < tcToday()) { try { localStorage.removeItem(SIGNED_KEY); } catch (e) {} return null; } // expired: re-lock
+  return o;
+}
+async function tcStartupCheck() { // on startup: drop expired or altered stored codes
+  const o = signedUnlock();
+  if (o) { try { const r = await tcVerify(o.code); if (!r || r.exp !== o.exp) localStorage.removeItem(SIGNED_KEY); } catch (e) {} }
+  refreshLockUI();
+}
+function permUnlocked() { try { return localStorage.getItem(UNLOCK_KEY) === UNLOCK_HASH; } catch (e) { return false; } }
+function isUnlocked() { return permUnlocked() || !!signedUnlock(); } // signed code: until its expiry date, then re-locks itself
 function levelLocked(lv) { return !isUnlocked() && (parseInt(lv) || 0) > FREE_MAX_LEVEL; }
 function isViewOnly() { return legs.length > 0 && levelLocked(level); }
 function tryUnlock(code) {
@@ -264,7 +312,7 @@ function tryUnlock(code) {
   refreshLockUI();
   return true;
 }
-function relock() { try { localStorage.removeItem(UNLOCK_KEY); } catch (e) {} refreshLockUI(); }
+function relock() { try { localStorage.removeItem(UNLOCK_KEY); localStorage.removeItem(SIGNED_KEY); } catch (e) {} refreshLockUI(); }
 function showUnlock(why) {
   document.getElementById('unlock-why').textContent = why || '';
   document.getElementById('unlock-input').value = '';
@@ -285,7 +333,8 @@ function refreshLockUI() {
   });
   ['ver-badge', 'start-badge'].forEach(id => {
     const b = document.getElementById(id); if (!b) return;
-    b.textContent = un ? '✓ Full version' : '🔒 Free version (TD1–TD3)';
+    const su = permUnlocked() ? null : signedUnlock();
+    b.textContent = un ? '✓ Full version' + (su ? ' until ' + tcFmtDay(su.exp) : '') : '🔒 Free version (TD1–TD3)';
     b.style.background = un ? '#4caf50' : '#555'; b.style.color = un ? '#000' : '#fff';
   });
   const vo = isViewOnly(), lb = document.getElementById('lock-banner');
@@ -301,14 +350,21 @@ function refreshLockUI() {
 });
 document.getElementById('lock-banner-btn').onclick = () => showUnlock('TD' + level + ' is view only in the free version.');
 document.getElementById('unlock-cancel').onclick = () => document.getElementById('unlock-modal').classList.remove('show');
-document.getElementById('unlock-ok').onclick = () => {
-  const m = document.getElementById('unlock-msg');
-  if (tryUnlock(document.getElementById('unlock-input').value)) {
-    m.style.color = '#4caf50'; m.textContent = 'Unlocked – Full version. Thank you for supporting the club!';
-    if (legs.length) render();
-    setTimeout(() => document.getElementById('unlock-modal').classList.remove('show'), 1200);
-  } else { m.style.color = '#ff5252'; m.textContent = 'Code not recognised. Check it and try again.'; }
+document.getElementById('unlock-ok').onclick = async () => {
+  const m = document.getElementById('unlock-msg'), v = document.getElementById('unlock-input').value;
+  const done = txt => { m.style.color = '#4caf50'; m.textContent = txt; if (legs.length) render(); refreshLockUI();
+    setTimeout(() => document.getElementById('unlock-modal').classList.remove('show'), 1200); };
+  if (tryUnlock(v)) { done('Unlocked – Full version. Thank you for supporting the club!'); return; }
+  let r = null, err = '';
+  try { r = await tcVerify(v); } catch (e) { err = e.message; }
+  if (r && r.exp < tcToday()) { m.style.color = '#ff5252'; m.textContent = 'This code expired on ' + tcFmtDay(r.exp) + '.'; return; }
+  if (r) {
+    try { localStorage.setItem(SIGNED_KEY, JSON.stringify({exp: r.exp, id: r.id, code: tcB32enc(tcB32dec(v))})); } catch (e) {}
+    done('Unlocked – Full version until ' + tcFmtDay(r.exp) + '. Thank you for supporting the club!'); return;
+  }
+  m.style.color = '#ff5252'; m.textContent = err ? 'Could not check the code: ' + err : 'Code not recognised. Check it and try again.';
 };
+setTimeout(tcStartupCheck, 0);
 document.getElementById('start-level').addEventListener('change', e => {
   if (levelLocked(e.target.value)) { const v = e.target.value; e.target.value = ''; showUnlock('TD' + v + ' needs the full version.'); }
 });
@@ -364,7 +420,15 @@ function legLength(leg) { return (leg.flags || []).filter(f => !f.isStart).lengt
 function totalDist() { return legs.reduce((s, leg) => s + legLength(leg), 0); }
 // Recount corners after every edit: each finished leg has exactly one corner, on its last flag.
 // A turn type or corner note left on an earlier flag (after adding/deleting flags) moves to the corner.
+// v7.9: first leg - the first aim always starts at Flag 1 (blank flags before it take that aim)
+function fixFirstLegAim() {
+  const f = (legs[0] && legs[0].flags) || [], real = f.filter(x => !x.isStart);
+  const first = real.find(x => x.bearing);
+  if (!first) return;
+  for (const x of real) { if (x === first) break; if (!x.bearing) x.bearing = first.bearing; }
+}
 function normalizeTrack() {
+  fixFirstLegAim();
   legs.forEach((leg, li) => {
     const flags = leg.flags || [];
     if (li === legs.length - 1) return; // leg in progress: leave as entered
@@ -1046,6 +1110,7 @@ function drawFullMap(pw, ph) {
   fctx.fillStyle = '#000'; fctx.fillRect(0,0,w,h);
   fctx.strokeStyle = '#ffeb3b'; fctx.lineWidth = 3;
   fctx.font = '14px sans-serif'; fctx.fillStyle = '#fff';
+  try { fixFirstLegAim(); } catch (e) {}
   // Collect points like mud map then rescale
   let points = [];
   let x = w/2, y = h - 40;
@@ -1071,7 +1136,7 @@ function drawFullMap(pw, ph) {
         dir: leg.flags[i].direction,
         cornerNote: leg.flags[i].cornerNote || '',
         div: leg.diversion && leg.diversion.atFlag === leg.flags[i].id ? leg.diversion : null,
-        prevBearing: i>0 ? (leg.flags[i-1].bearing || '') : ''});
+        prevBearing: i>0 && !leg.flags[i-1].isStart ? (leg.flags[i-1].bearing || '') : ''}); // v7.9: the start flag is not an aim position
     }
     if (li < legs.length - 1 && leg.exitDir) {
       heading += getTurn(leg.exitDir);
@@ -1263,7 +1328,8 @@ function drawFullMap(pw, ph) {
       // v7.6b: arrow sits just BEFORE the flag on the incoming segment, pointing INTO the flag,
       // tip touching the flag dot / article ring edge. No incoming segment (track start): after the flag.
       const nx = points[idx+1], pv = idx > 0 ? points[idx-1] : null;
-      const AL = 32 / mapScale, AW = 5.5 / mapScale; // v7.8: 32 x 11 px
+      // v7.8: 32 x 11 px on screen; v7.9: PDF arrow scales with the PDF map scale (smaller when a short track is zoomed in), 20-32 px
+      const AL = printMode ? Math.max(20, Math.min(32, 60 / (fmScale || 1))) : 32 / mapScale, AW = AL * 11 / 64; // pdf-arrow-scale
       const RB = (ringR ? ringR + 1.25 / mapScale : 7 / mapScale);
       let ux, uy, bx0, by0, tx0, ty0;
       if (pv && (pv.x !== p.x || pv.y !== p.y)) {
@@ -2131,7 +2197,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '7.8';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '7.9';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
