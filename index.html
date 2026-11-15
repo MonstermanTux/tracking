@@ -81,6 +81,40 @@ button:active { transform: scale(0.95); }
 #desc-modal.kind-loc #modal-title { color: #81c784; }
 .modal-content { background: #222; padding: 16px; border-radius: 12px; width: 90%;
   max-width: 400px; border: 3px solid var(--accent); }
+/* v8.0 FLAG_EDIT_SCREEN */
+#flag-edit { position: fixed; inset: 0; z-index: 90; background: var(--bg, #1a1a1a); display: none; flex-direction: column; }
+#flag-edit.show { display: flex; }
+#fe-banner { text-align: center; font-weight: bold; font-size: 19px; padding: 6px; border-radius: 0 0 8px 8px; }
+#fe-banner .hint { font-size: 13px; font-weight: normal; margin: 2px 0; }
+#fe-chips { overflow-x: auto; white-space: nowrap; }
+#fe-chips button { min-width: 40px; padding: 4px 7px; margin: 2px; border-radius: 6px; border: 2px solid #666; background: #222; color: #fff; font-weight: bold; font-size: 14px; }
+#fe-chips button.sel { border-color: #f44336; background: #f44336; }
+#fe-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 70px; }
+#flag-edit .fe-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 4px; }
+#flag-edit .fe-head h2 { margin: 0; color: var(--accent); font-size: 24px; }
+#flag-edit .fe-head small { color: #bbb; font-weight: normal; font-size: 14px; }
+#flag-edit .card { margin: 8px 10px; padding: 10px; background: #222; border: 3px solid var(--accent); border-radius: 12px; }
+#flag-edit .card h3 { margin: 0 0 6px; font-size: 16px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+#flag-edit .tag { font-size: 12px; padding: 2px 6px; border-radius: 6px; background: #000; border: 1px solid #888; color: #ddd; font-weight: normal; }
+#flag-edit .card.dir { border-color: #42a5f5; } #flag-edit .card.loc { border-color: #4caf50; } #flag-edit .card.cross { border-color: #00e5ff; } #flag-edit .card.flagc { border-color: #fff; }
+#flag-edit .field { font-family: inherit; width: 100%; box-sizing: border-box; font-size: 17px; padding: 8px; border-radius: 8px; color: #fff; min-height: 44px; }
+#flag-edit .field.dir { background: #0d2b4d; border: 3px solid #42a5f5; }
+#flag-edit .field.loc { background: #10391a; border: 3px solid #4caf50; }
+#flag-edit .field.cross { background: #06323a; border: 3px solid #00e5ff; }
+#flag-edit .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+#flag-edit button { min-height: 44px; }
+#flag-edit .del { background: #f44336; border-color: #f44336; color: #fff; }
+#flag-edit .fdirs button { background: #42a5f5; color: #000; border-color: #42a5f5; }
+#flag-edit .fdirs button.on { background: #fff; border-color: #fff; }
+#flag-edit .seg button.on { background: #4caf50; color: #000; border-color: #4caf50; }
+#flag-edit .muted { color: #aaa; font-size: 13px; }
+#flag-edit .add { background: #111; border: 2px dashed #888; color: #ddd; }
+#flag-edit .adds { margin: 8px 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+#fe-foot { display: flex; justify-content: space-between; gap: 6px; padding: 8px 10px; background: #222; border-top: 2px solid var(--accent); }
+#fe-foot button { flex: 1; }
+#fe-undo { position: absolute; left: 10px; right: 10px; bottom: 70px; background: #333; color: #fff; border: 2px solid #ffeb3b; border-radius: 10px; padding: 8px 10px; display: none; align-items: center; justify-content: space-between; gap: 8px; z-index: 2; }
+#fe-undo.show { display: flex; }
+#fe-ro { display: none; margin: 6px 10px 0; padding: 6px 8px; background: #3a2a00; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; }
 #fullmap { position: fixed; inset: 0; background: #000; display: none; z-index: 150;
   flex-direction: column; overflow: hidden; touch-action: none; }
 #fullmap.show { display: flex; }
@@ -153,11 +187,20 @@ button:active { transform: scale(0.95); }
   </div>
 </div>
 
+<div id="flag-edit" aria-label="Flag edit screen">
+  <div id="fe-banner"></div>
+  <div id="fe-ro">🔒 View only in the free version. <button type="button" id="fe-ro-unlock" style="min-height:32px;">Unlock</button></div>
+  <div id="fe-body"></div>
+  <div id="fe-undo"><span id="fe-undo-txt"></span><button type="button" id="fe-undo-btn" style="background:#ffeb3b;color:#000;">↶ Undo</button></div>
+  <div id="fe-foot"><button type="button" id="fe-prev">‹ Prev flag</button><button type="button" id="fe-done" style="background:#4caf50;color:#000;">✓ Done</button><button type="button" id="fe-next">Next flag ›</button></div>
+</div>
 <div id="unlock-modal" class="modal" style="z-index:500;">
   <div class="modal-content">
     <h3 id="unlock-title" style="color:#ffeb3b;">Donate to the club to unlock: enter code</h3>
     <p id="unlock-why" style="font-size:14px;margin:4px 0 8px;"></p>
     <input id="unlock-input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CLUB-XXXX-XXXX" style="width:100%;font-size:20px;padding:8px;box-sizing:border-box;">
+    <input id="unlock-name" type="text" maxlength="20" autocomplete="name" placeholder="Your name (club code)" style="width:100%;font-size:17px;padding:8px;box-sizing:border-box;margin-top:6px;">
+    <div style="font-size:12px;color:#aaa;margin-top:3px;">Club code: enter your name (printed faintly on PDFs). Signed codes already carry the name.</div>
     <div id="unlock-msg" style="min-height:1.3em;margin-top:6px;font-size:14px;"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
       <button id="unlock-cancel" type="button">Cancel</button>
@@ -280,15 +323,22 @@ function tcSignedBytes(payload) { const dom = new TextEncoder().encode(TC_DOMAIN
 function tcGroup(s) { return s.match(/.{1,8}/g).join('-'); }
 
 const SIGNED_KEY = 'tracking-signed-unlock';
+// LICENSEE_NAME_V2: signed code v2 = [2][expiry day x2][id x3][name length][name UTF-8] + 64-byte signature; v1 (no name) still accepted
+const LICENSEE_KEY = 'tracking-licensee';
+function tcCleanName(n) { return Array.from(String(n || '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim()).slice(0, 20).join(''); }
 async function tcVerify(code) {
   const b = tcB32dec(code);
-  if (b.length !== 70 || b[0] !== 1) return null;
+  let plen = 0;
+  if (b[0] === 1 && b.length === 70) plen = 6;
+  else if (b[0] === 2 && b.length >= 71 && b.length === 7 + b[6] + 64) plen = 7 + b[6];
+  else return null;
   if (!(window.crypto && crypto.subtle)) throw new Error('this page cannot check signed codes (needs https)');
-  const payload = b.slice(0, 6), sig = b.slice(6);
+  const payload = b.slice(0, plen), sig = b.slice(plen);
   const key = await crypto.subtle.importKey('jwk', TC_PUB, {name: 'ECDSA', namedCurve: 'P-256'}, false, ['verify']);
   const good = await crypto.subtle.verify({name: 'ECDSA', hash: 'SHA-256'}, key, sig, tcSignedBytes(payload));
   if (!good) return null;
-  return {exp: (payload[1] << 8) | payload[2], id: Array.from(payload.slice(3, 6)).map(x => x.toString(16).padStart(2, '0')).join('')};
+  const name = plen > 7 ? tcCleanName(new TextDecoder().decode(payload.slice(7))) : '';
+  return {exp: (payload[1] << 8) | payload[2], id: Array.from(payload.slice(3, 6)).map(x => x.toString(16).padStart(2, '0')).join(''), name};
 }
 function signedUnlock() {
   let o = null; try { o = JSON.parse(localStorage.getItem(SIGNED_KEY) || 'null'); } catch (e) {}
@@ -298,7 +348,7 @@ function signedUnlock() {
 }
 async function tcStartupCheck() { // on startup: drop expired or altered stored codes
   const o = signedUnlock();
-  if (o) { try { const r = await tcVerify(o.code); if (!r || r.exp !== o.exp) localStorage.removeItem(SIGNED_KEY); } catch (e) {} }
+  if (o) { try { const r = await tcVerify(o.code); if (!r || r.exp !== o.exp) localStorage.removeItem(SIGNED_KEY); else if ((r.name || '') !== (o.name || '')) { o.name = r.name || ''; localStorage.setItem(SIGNED_KEY, JSON.stringify(o)); } } catch (e) {} }
   refreshLockUI();
 }
 function permUnlocked() { try { return localStorage.getItem(UNLOCK_KEY) === UNLOCK_HASH; } catch (e) { return false; } }
@@ -312,10 +362,20 @@ function tryUnlock(code) {
   refreshLockUI();
   return true;
 }
-function relock() { try { localStorage.removeItem(UNLOCK_KEY); localStorage.removeItem(SIGNED_KEY); } catch (e) {} refreshLockUI(); }
+function relock() { try { localStorage.removeItem(UNLOCK_KEY); localStorage.removeItem(SIGNED_KEY); localStorage.removeItem(LICENSEE_KEY); } catch (e) {} refreshLockUI(); }
+function licenseText() { // faint PDF stamp; nameless codes give no stamp
+  if (!isUnlocked()) return '';
+  const o = signedUnlock();
+  if (!permUnlocked() && o && o.name) return 'Licensed to ' + o.name + ' \u00b7 until ' + tcFmtDay(o.exp);
+  let n = ''; try { n = localStorage.getItem(LICENSEE_KEY) || ''; } catch (e) {}
+  if (permUnlocked() && n) return 'Licensed to ' + tcCleanName(n);
+  if (o && o.name) return 'Licensed to ' + o.name + ' \u00b7 until ' + tcFmtDay(o.exp);
+  return '';
+}
 function showUnlock(why) {
   document.getElementById('unlock-why').textContent = why || '';
   document.getElementById('unlock-input').value = '';
+  try { document.getElementById('unlock-name').value = localStorage.getItem(LICENSEE_KEY) || ''; } catch (e) {}
   const m = document.getElementById('unlock-msg'); m.textContent = ''; m.style.color = '';
   document.getElementById('unlock-modal').classList.add('show');
 }
@@ -354,12 +414,15 @@ document.getElementById('unlock-ok').onclick = async () => {
   const m = document.getElementById('unlock-msg'), v = document.getElementById('unlock-input').value;
   const done = txt => { m.style.color = '#4caf50'; m.textContent = txt; if (legs.length) render(); refreshLockUI();
     setTimeout(() => document.getElementById('unlock-modal').classList.remove('show'), 1200); };
+  const nm = tcCleanName(document.getElementById('unlock-name').value);
+  if (sha256Hex(String(v || '').trim().toUpperCase()) === UNLOCK_HASH && !nm) { m.style.color = '#ff5252'; m.textContent = 'Please enter your name for the club code.'; document.getElementById('unlock-name').focus(); return; }
+  if (sha256Hex(String(v || '').trim().toUpperCase()) === UNLOCK_HASH) { try { localStorage.setItem(LICENSEE_KEY, nm); } catch (e) {} }
   if (tryUnlock(v)) { done('Unlocked – Full version. Thank you for supporting the club!'); return; }
   let r = null, err = '';
   try { r = await tcVerify(v); } catch (e) { err = e.message; }
   if (r && r.exp < tcToday()) { m.style.color = '#ff5252'; m.textContent = 'This code expired on ' + tcFmtDay(r.exp) + '.'; return; }
   if (r) {
-    try { localStorage.setItem(SIGNED_KEY, JSON.stringify({exp: r.exp, id: r.id, code: tcB32enc(tcB32dec(v))})); } catch (e) {}
+    try { localStorage.setItem(SIGNED_KEY, JSON.stringify({exp: r.exp, id: r.id, name: r.name || '', code: tcB32enc(tcB32dec(v))})); } catch (e) {}
     done('Unlocked – Full version until ' + tcFmtDay(r.exp) + '. Thank you for supporting the club!'); return;
   }
   m.style.color = '#ff5252'; m.textContent = err ? 'Could not check the code: ' + err : 'Code not recognised. Check it and try again.';
@@ -701,14 +764,14 @@ function relabelArticles() {
   }));
   articlesPlaced = n;
 }
-function delFlag() {
+function delFlag(skipConfirm) {
   if (!currentLeg || !currentLeg.flags.length) return;
   let idx = currentLeg.flags.length - 1;
   const si = selectedFlag ? currentLeg.flags.indexOf(selectedFlag) : -1;
   if (si >= 0) idx = si;
   const f = currentLeg.flags[idx];
   if (f.isStart) return alert('Cannot delete start');
-  if (si >= 0 && idx < currentLeg.flags.length - 1 && !confirm('Delete Flag ' + f.id + ' (' + f.id * FLAG_M + 'm) on leg ' + (legs.indexOf(currentLeg) + 1) + '? Later flags move up 50m.')) return;
+  if (!skipConfirm && si >= 0 && idx < currentLeg.flags.length - 1 && !confirm('Delete Flag ' + f.id + ' (' + f.id * FLAG_M + 'm) on leg ' + (legs.indexOf(currentLeg) + 1) + '? Later flags move up 50m.')) return;
   saveState();
   currentLeg.flags.splice(idx, 1);
   // later flags close the gap
@@ -794,6 +857,7 @@ function autoSave() {
 function render() {
   try { normalizeTrack(); } catch (e) {}
   setTimeout(autoSave, 0);
+  setTimeout(() => feRefresh(), 0); // v8.0 keep the flag edit screen current
   level = parseInt(levelEl.value) || level;
   refreshLockUI();
   document.getElementById('div-l-btn').style.display = allowDiversion(level) ? 'inline-block' : 'none';
@@ -819,16 +883,12 @@ function render() {
     const chips = currentLeg.flags.map((f, i) => `<button type="button" class="flag-chip" data-i="${i}" style="min-width:40px;padding:6px 8px;margin:2px;font-weight:bold;border-radius:6px;border:2px solid ${f === sf ? '#f44336' : '#666'};background:${f === sf ? '#f44336' : '#222'};color:#fff;">F${f.isStart ? 0 : f.id}${f.article ? '•' : ''}</button>`).join('');
     const hint = sf
       ? `Flag ${sf.isStart ? 0 : sf.id} selected: −50m deletes it, +50m adds after it`
-      : 'Tap a flag to edit it (otherwise ±50m works on the last flag)';
+      : 'Tap a flag to open its edit screen (otherwise ±50m works on the last flag)';
     const artBtns = (sf && sf.article && !sf.isStart) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-del" style="padding:6px 10px;margin:2px;background:#f44336;color:#fff;">✕ Delete article ${sf.article.label || ''} on F${sf.id}</button></div>` : (sf && !sf.article) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-before" style="padding:6px 10px;margin:2px;">+ Art before F${sf.isStart ? 0 : sf.id}</button><button type="button" id="chip-art-at" style="padding:6px 10px;margin:2px;">+ Art at F${sf.isStart ? 0 : sf.id}</button></div>` : '';
     ban.innerHTML = '<div>' + (li > 0 ? '‹ ' : '') + 'LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '') + (li < legs.length - 1 ? ' ›' : '') + '</div>'
       + `<div style="font-size:13px;font-weight:normal;margin:2px 0;">${hint}</div><div id="chip-row" style="overflow-x:auto;white-space:nowrap;">${chips}</div>${artBtns}`;
-    ban.querySelectorAll('.flag-chip').forEach(b => b.onclick = () => {
-      const f = currentLeg.flags[+b.dataset.i];
-      selectedFlag = (selectedFlag === f) ? null : f;
-      render();
-      const card = legView.querySelector('.flag.selected');
-      if (card) card.scrollIntoView({block: 'center', behavior: 'smooth'});
+    ban.querySelectorAll('.flag-chip').forEach(b => b.onclick = () => { // v8.0: a chip opens the full-screen flag editor
+      feOpen(legs.indexOf(currentLeg), +b.dataset.i);
     });
     const ab = ban.querySelector('#chip-art-before'), aa = ban.querySelector('#chip-art-at');
     if (ab) ab.onclick = () => { const i = currentLeg.flags.indexOf(sf); openDesc('Article before this flag', d => placeArticle(i, d, false)); };
@@ -1963,6 +2023,9 @@ function makeTrackPdf(info) {
     g.save(); g.font = 'italic 18px sans-serif'; g.fillStyle = '#666'; g.textAlign = 'right';
     g.fillText('Free version – donation to the tracking club unlocks full', PW - M, PH - 12); g.restore();
   }
+  { const lic = licenseText(); if (lic) { // LICENSEE_NAME_V2 faint stamp
+    g.save(); g.font = 'italic 14px sans-serif'; g.fillStyle = '#d4d4d4'; g.textAlign = 'left';
+    g.fillText(lic, M, PH - 12); g.restore(); } }
   [mapScale, mapTx, mapTy] = sv; printMode = false;
   drawFullMap();
   // build PDF with embedded JPEG
@@ -2197,7 +2260,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '7.9';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.0';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
@@ -2404,6 +2467,308 @@ function promptExit(leg, why) {
   });
   document.getElementById('exit-modal').classList.add('show');
 }
+// ===== v8.0 FLAG_EDIT_SCREEN: full-screen editor for one flag and everything tied to it =====
+// Opened by tapping a flag chip in the orange/grey leg banner. Swipe or footer = previous/next flag (carries across legs).
+// Text edits autosave on change; deletes push undo history and show an undo bar; only Delete flag asks to confirm.
+var feState = null; // {li, fi} indices (objects are replaced by undo, so we never hold references)
+var feUndoTimer = null, feSnapData = null;
+function feSnap() { feSnapData = JSON.stringify({legs, articlesPlaced, crossTracksPlaced, hideDesc}); }
+function feRestore() { // the undo bar restores exactly the state before the last delete on this screen
+  if (!feSnapData) return;
+  const o = JSON.parse(feSnapData); feSnapData = null;
+  legs = o.legs; articlesPlaced = o.articlesPlaced; crossTracksPlaced = o.crossTracksPlaced; hideDesc = o.hideDesc || '';
+  diversion = (legs.find(l => l.diversion) || {}).diversion || null;
+  currentLeg = legs[Math.min(feState ? feState.li : 0, legs.length - 1)] || null;
+  render(); drawMud();
+}
+function feEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c])); }
+function feOrder() { const o = []; legs.forEach((l, li) => (l.flags || []).forEach((f, fi) => o.push([li, fi]))); return o; }
+function feCtx() {
+  if (!feState || !legs.length) return null;
+  let li = Math.max(0, Math.min(legs.length - 1, feState.li));
+  const leg = legs[li];
+  if (!leg.flags.length) return null;
+  let fi = Math.max(0, Math.min(leg.flags.length - 1, feState.fi));
+  feState = {li, fi};
+  currentLeg = leg; selectedFlag = leg.flags[fi];
+  return {li, fi, leg, f: leg.flags[fi]};
+}
+function feOpen(li, fi) {
+  feState = {li, fi};
+  if (!feCtx()) { feState = null; return; }
+  document.getElementById('flag-edit').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  feRender();
+  const b = document.getElementById('fe-body'); if (b) b.scrollTop = 0;
+}
+function feClose() {
+  feState = null;
+  document.getElementById('flag-edit').classList.remove('show');
+  document.body.style.overflow = '';
+  feHideUndo();
+  render(); drawMud();
+  const card = legView.querySelector('.flag.selected');
+  if (card) card.scrollIntoView({block: 'center'});
+}
+function feMove(d) {
+  if (!feState) return;
+  const o = feOrder(); let k = o.findIndex(x => x[0] === feState.li && x[1] === feState.fi);
+  const nk = Math.max(0, Math.min(o.length - 1, k + d));
+  if (nk === k) return;
+  feHideUndo();
+  feOpen(o[nk][0], o[nk][1]);
+}
+function feRefresh() { if (feState && document.getElementById('flag-edit').classList.contains('show')) feRender(); }
+function feShowUndo(txt) {
+  document.getElementById('fe-undo-txt').textContent = txt;
+  document.getElementById('fe-undo').classList.add('show');
+  clearTimeout(feUndoTimer); feUndoTimer = setTimeout(feHideUndo, 6000);
+}
+function feHideUndo() { clearTimeout(feUndoTimer); const u = document.getElementById('fe-undo'); if (u) u.classList.remove('show'); }
+function feCtTag(li, fi) { // same numbering as the map (track order)
+  let n = 0;
+  for (let L = 0; L < legs.length; L++) {
+    const leg = legs[L], s0 = leg.flags[0] && leg.flags[0].isStart ? 1 : 0;
+    for (let i = s0; i < leg.flags.length; i++) {
+      const c = (leg.crossTracks || []).find(ct => (ct.flagId !== undefined && ct.flagId === leg.flags[i].id) || ct.afterFlag === i);
+      if (c) { n++; if (L === li && i === fi) return 'CT' + n; }
+    }
+  }
+  return 'CT';
+}
+function feAimInfo(leg, fi) { // is this flag the start of an aim on its leg? which number?
+  let n = 0, prev = '', startFi = -1, isNew = false;
+  for (let i = 0; i <= fi; i++) {
+    const f = leg.flags[i]; if (f.isStart) continue;
+    const b = f.bearing || '';
+    if (b && b !== prev) { n++; startFi = i; if (i === fi) isNew = true; }
+    prev = b;
+  }
+  return {n, isNew, startFi};
+}
+const FE_DIRS = { '90L':'90° L', '90R':'90° R', 'obtL':'Obtuse L', 'obtR':'Obtuse R', 'acL':'Acute L', 'acR':'Acute R' };
+const FE_LBL = { aim: 'aim note', art: 'article ring', cross: 'cross-track tag', dist: 'distance note' };
+function feRender() {
+  const c = feCtx(); if (!c) { feClose(); return; }
+  const {li, fi, leg, f} = c;
+  const vo = isViewOnly(), dis = vo ? ' disabled' : '';
+  const rules = R(level);
+  const editing = li < legs.length - 1;
+  const isLast = fi === leg.flags.length - 1;
+  const fnum = f.isStart ? 0 : f.id;
+  const flagIdx = leg.flags.filter(x => !x.isStart);
+  const legStartM = leg.flags[0] ? (leg.flags[0].isStart ? 0 : (leg.flags[0].id - 1) * FLAG_M) : 0;
+  const order = feOrder(), k = order.findIndex(x => x[0] === li && x[1] === fi);
+  const nameOf = p => { if (!p) return ''; const g = legs[p[0]].flags[p[1]]; return 'Flag ' + (g.isStart ? 0 : g.id) + (p[0] !== li ? ' (Leg ' + (p[0] + 1) + ')' : ''); };
+  const pv = order[k - 1], nx = order[k + 1];
+  // banner (kept like the leg banner: orange while editing an earlier leg)
+  const ban = document.getElementById('fe-banner');
+  ban.style.background = editing ? '#ff9800' : '#333';
+  ban.style.color = editing ? '#000' : '#ffeb3b';
+  ban.innerHTML = '<div>' + (li > 0 ? '‹ ' : '') + 'LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '') + (li < legs.length - 1 ? ' ›' : '') + '</div>'
+    + '<div class="hint">Swipe ‹ › for ' + (pv ? nameOf(pv) : '–') + ' / ' + (nx ? nameOf(nx) : '–') + ' · tap a chip to jump</div>'
+    + '<div id="fe-chips">' + leg.flags.map((g, i) => `<button type="button" data-fe="jump" data-i="${i}" class="${i === fi ? 'sel' : ''}">F${g.isStart ? 0 : g.id}${g.article ? '•' : ''}</button>`).join('') + '</div>';
+  document.getElementById('fe-ro').style.display = vo ? 'block' : 'none';
+  document.getElementById('fe-prev').disabled = !pv;
+  document.getElementById('fe-next').disabled = !nx;
+  const h = [];
+  const sub = f.isStart ? (leg.start && leg.start.type === 'gate' ? 'start gate' : 'start') + ' · 0 m' : (fnum * FLAG_M) + ' m · Leg ' + (li + 1) + (isLast && editing ? ' corner' : isLast ? ' last flag' : '');
+  h.push(`<div class="fe-head"><h2>Flag ${fnum} <small>· ${sub}</small></h2><button type="button" data-fe="done">✕ Close</button></div>`);
+  // 1. the flag itself
+  {
+    const gps = f.gps ? `GPS ${(+f.gps.lat).toFixed(6)}, ${(+f.gps.lng).toFixed(6)}${f.gps.acc ? ' ±' + f.gps.acc + ' m' : ''}` : 'No GPS dropped yet';
+    let body = '';
+    if (f.isStart && leg.start) body += `<textarea class="field loc" rows="2" data-fe-field="start"${dis} placeholder="Start description">${feEsc(leg.start.desc || '')}</textarea>`;
+    body += `<div class="muted" style="margin-top:4px">${feEsc(gps)}</div>`;
+    let btns = '';
+    if (!vo) {
+      btns += `<button type="button" data-fe="gps">📍 ${f.gps ? 'Re-drop GPS' : 'Drop GPS here'}</button>`;
+      if (f.gps) btns += `<button type="button" class="del" data-fe="delgps">🗑 Remove GPS</button>`;
+      btns += `<button type="button" data-fe="insert">➕ Insert flag after (+50 m)</button>`;
+      if (!f.isStart) btns += `<button type="button" class="del" data-fe="delflag">🗑 Delete flag (−50 m)</button>`;
+    }
+    const tag = f.isStart ? 'start of track' : (fnum * FLAG_M) + ' m (' + (fnum * FLAG_M - legStartM) + ' m into Leg ' + (li + 1) + ')';
+    h.push(`<div class="card flagc" data-card="flag"><h3>Flag ${fnum} – ${f.isStart ? 'start' : 'position'} <span class="tag">${tag}</span></h3>${body}${btns ? '<div class="row">' + btns + '</div>' : ''}</div>`);
+  }
+  const adds = [];
+  // 2. aim
+  if (!f.isStart) {
+    const ai = feAimInfo(leg, fi), prevAim = aimPrev(leg, fi);
+    if (ai.isNew) {
+      const deletable = !!prevAim; // the leg's first aim stays; later aims merge back
+      h.push(`<div class="card dir" data-card="aim"><h3>Aim from this flag${ai.n > 1 ? ' (aim ' + ai.n + ' on this leg)' : ''} <span class="tag">arrow before F${fnum}</span></h3>`
+        + `<textarea class="field dir" rows="2" data-fe-field="aim"${dis}>${feEsc(f.bearing || '')}</textarea>`
+        + (deletable ? `<div class="muted">Earlier aim on this leg: “${feEsc(prevAim)}”. Clearing the text or typing the same aim merges them.</div>` : '')
+        + (vo ? '' : `<div class="row"><button type="button" data-fe="dict-aim">🎤 Dictate</button>${deletable ? `<button type="button" class="del" data-fe="delaim">🗑 Delete aim ${ai.n} (back to “${feEsc(prevAim.slice(0, 24))}”)</button>` : ''}</div>`)
+        + '</div>');
+    } else if (f.bearing) {
+      h.push(`<div class="muted" style="margin:4px 14px">Following aim “${feEsc(f.bearing)}”${ai.startFi >= 0 ? ' from Flag ' + leg.flags[ai.startFi].id : ''}.</div>`);
+      if (!vo) adds.push(`<button type="button" class="add" data-fe="addaim">➕ New aim from this flag</button>`);
+    } else if (!vo) adds.push(`<button type="button" class="add" data-fe="addaim">➕ Add aim from this flag</button>`);
+  }
+  // 3. article
+  if (f.article) {
+    const a = f.article, pre = (a.label || '') + ': ';
+    const txt = a.desc && a.desc.startsWith(pre) ? a.desc.slice(pre.length) : (a.desc || '');
+    const canAt = !articleCheck(leg, fi, true), canBefore = !f.isStart && !articleCheck(leg, fi, false);
+    let seg = '';
+    if (!f.isStart) seg = `<div class="row seg"><button type="button" data-fe="art-at" class="${a.atFlag ? 'on' : ''}"${(!a.atFlag && !canAt) || vo ? ' disabled' : ''}>At this flag</button><button type="button" data-fe="art-before" class="${!a.atFlag ? 'on' : ''}"${(a.atFlag && !canBefore) || vo ? ' disabled' : ''}>Before this flag</button></div>`;
+    h.push(`<div class="card loc" data-card="article"><h3>Article ${feEsc(a.label || '')} <span class="tag">${a.atFlag ? 'at F' + fnum : 'before F' + fnum}</span></h3>${seg}`
+      + `<textarea class="field loc" rows="2" style="margin-top:8px" data-fe-field="art"${dis}>${feEsc(txt)}</textarea>`
+      + (vo ? '' : `<div class="row"><button type="button" data-fe="dict-art">🎤 Dictate</button>${f.isStart ? '' : `<button type="button" class="del" data-fe="delart">🗑 Delete article ${feEsc(a.label || '')}</button>`}</div>`)
+      + '</div>');
+  } else if (!vo && !f.isStart && articlesPlaced < (rules.articles || 0)) {
+    if (!articleCheck(leg, fi, true)) adds.push(`<button type="button" class="add" data-fe="addart-at">➕ Article at this flag</button>`);
+    if (!articleCheck(leg, fi, false)) adds.push(`<button type="button" class="add" data-fe="addart-before">➕ Article before this flag</button>`);
+  }
+  // 4. cross-track before this flag
+  const ct = (leg.crossTracks || []).find(x => x.afterFlag === fi);
+  if (ct) {
+    const tag = feCtTag(li, fi);
+    h.push(`<div class="card cross" data-card="cross"><h3>Cross-track ${tag} before this flag <span class="tag">~30 m each side</span></h3>`
+      + `<textarea class="field cross" rows="2" data-fe-field="cross"${dis}>${feEsc(ct.desc || '')}</textarea>`
+      + (vo ? '' : `<div class="row"><button type="button" data-fe="dict-cross">🎤 Dictate</button><button type="button" class="del" data-fe="delcross">🗑 Delete ${tag}</button></div>`)
+      + '</div>');
+  } else if (!vo && !f.isStart && allowCross(level) && crossTracksPlaced < (rules.crossCount || 0)
+             && minDistToTurnM(leg, fi, false) >= RULES.cross.minFromTurnM) {
+    adds.push(`<button type="button" class="add" data-fe="addcross">➕ Cross-track before this flag</button>`);
+  }
+  // 5. corner / turn (last flag of a leg)
+  if (isLast && !f.isStart) {
+    const dirs = ['90L', '90R', 'obtL', 'obtR']; if (allowAcute(level)) dirs.push('acL', 'acR');
+    if (editing) {
+      const cur = f.direction || leg.exitDir || '';
+      h.push(`<div class="card dir" data-card="corner"><h3>Corner – exit turn <span class="tag">into Leg ${li + 2}</span></h3>`
+        + `<div class="row fdirs">${dirs.map(d => `<button type="button" data-fe="exit" data-dir="${d}" class="${d === cur ? 'on' : ''}"${dis}>${FE_DIRS[d]}</button>`).join('')}</div>`
+        + `<textarea class="field loc" rows="2" style="margin-top:8px" data-fe-field="corner"${dis} placeholder="Corner note">${feEsc(f.cornerNote || '')}</textarea>`
+        + (!vo && f.cornerNote ? `<div class="row"><button type="button" class="del" data-fe="delcorner">🗑 Clear corner note</button></div>` : '')
+        + '</div>');
+    } else if (!vo && !trackDone && !(rules.maxLegs && legs.length >= rules.maxLegs)) {
+      h.push(`<div class="card dir" data-card="turn"><h3>Turn here <span class="tag">starts Leg ${li + 2}</span></h3>`
+        + `<div class="row fdirs">${dirs.map(d => `<button type="button" data-fe="turn" data-dir="${d}">${FE_DIRS[d]}</button>`).join('')}</div></div>`);
+    }
+  }
+  // 6. diversion at this flag
+  if (leg.diversion && leg.diversion.atFlag === f.id) {
+    h.push(`<div class="card loc" data-card="diversion"><h3>Diversion ${feEsc(leg.diversion.side || leg.diversion.dir || '')} <span class="tag">at F${fnum}</span></h3>`
+      + `<textarea class="field loc" rows="2" data-fe-field="div"${dis}>${feEsc(leg.diversion.desc || leg.diversion.note || '')}</textarea>`
+      + (vo ? '' : `<div class="row"><button type="button" class="del" data-fe="deldiv">🗑 Delete diversion</button></div>`) + '</div>');
+  }
+  // 7. hide / finish note (last flag of the track)
+  if (isLast && !editing && (hideDesc || trackDone)) {
+    h.push(`<div class="card loc" data-card="hide"><h3>Hide / finish <span class="tag">end of track</span></h3>`
+      + `<textarea class="field loc" rows="2" data-fe-field="hide"${dis}>${feEsc(hideDesc || '')}</textarea></div>`);
+  }
+  // 8. moved map labels
+  const offs = f.lblOff && typeof f.lblOff === 'object' ? Object.keys(f.lblOff) : [];
+  if (offs.length) {
+    h.push(`<div class="card" data-card="labels"><h3>Moved map labels <span class="tag">${offs.length}</span></h3>`
+      + (vo ? `<div class="muted">${offs.map(x => FE_LBL[x] || x).join(', ')}</div>` : `<div class="row">${offs.map(x => `<button type="button" class="del" data-fe="dellbl" data-k="${feEsc(x)}">↺ Reset ${feEsc(FE_LBL[x] || x)}</button>`).join('')}</div>`)
+      + '</div>');
+  }
+  if (adds.length) h.push(`<div class="adds">${adds.join('')}</div>`);
+  if (!vo && !adds.length) h.push(`<div class="muted" style="margin:6px 14px">Nothing else can be added at this flag on TD${level}.</div>`);
+  document.getElementById('fe-body').innerHTML = h.join('');
+}
+function feDel(label, fn) { feSnap(); saveState(); fn(); render(); drawMud(); feShowUndo(label + ' deleted'); feRender(); }
+function feAct(act, btn) {
+  const c = feCtx(); if (!c) return;
+  const {li, fi, leg, f} = c;
+  if (act === 'done') return feClose();
+  if (act === 'jump') return feOpen(li, +btn.dataset.i);
+  if (isViewOnly()) { showUnlock('TD' + level + ' is view only in the free version.'); return; }
+  switch (act) {
+    case 'gps':
+      if (!navigator.geolocation) return alert('GPS not available');
+      btn.textContent = '📍 …';
+      navigator.geolocation.getCurrentPosition(pos => { saveState(); f.gps = {lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy)}; render(); feRender(); },
+        err => { alert('GPS failed: ' + (err.message || 'denied')); feRender(); }, {enableHighAccuracy: true, timeout: 12000});
+      return;
+    case 'delgps': return feDel('GPS', () => { f.gps = null; });
+    case 'insert': selectedFlag = f; addFlag(); feState = {li, fi}; feRender(); return;
+    case 'delflag': {
+      if (!confirm('Delete Flag ' + f.id + ' (' + f.id * FLAG_M + 'm) on leg ' + (li + 1) + '? Later flags move up 50m.')) return;
+      feSnap(); selectedFlag = f; currentLeg = leg; delFlag(true);
+      feState = {li: Math.min(li, legs.length - 1), fi: Math.max(0, fi - 1)};
+      feShowUndo('Flag ' + f.id + ' deleted'); feRender(); return;
+    }
+    case 'delaim': return feDel('Aim', () => setBearingFrom(leg, fi, ''));
+    case 'addaim': return openDesc('Aim from Flag ' + f.id, d => { saveState(); setBearingFrom(leg, fi, d); render(); }, '');
+    case 'dict-aim': return openDesc('Aim from Flag ' + f.id, aimEditCb(leg, fi, d => { saveState(); setBearingFrom(leg, fi, d); render(); }), f.bearing || '');
+    case 'art-at': case 'art-before': {
+      const at = act === 'art-at'; if (!f.article || !!f.article.atFlag === at) return;
+      const err = articleCheck(leg, fi, at); if (err) return alert(err);
+      saveState(); f.article.atFlag = at; render(); drawMud(); return;
+    }
+    case 'delart': return feDel('Article ' + (f.article ? f.article.label : ''), () => { f.article = null; relabelArticles(); });
+    case 'addart-at': return openDesc('Article at this flag', d => placeArticle(fi, d, true));
+    case 'addart-before': return openDesc('Article before this flag', d => placeArticle(fi, d, false));
+    case 'dict-art': { const a = f.article; if (!a) return; const pre = a.label + ': '; const cur = a.desc.startsWith(pre) ? a.desc.slice(pre.length) : a.desc;
+      return openDesc('Edit article ' + a.label, d => { saveState(); a.desc = pre + d; render(); drawMud(); }, cur); }
+    case 'delcross': { const tag = feCtTag(li, fi); return feDel('Cross-track ' + tag, () => { leg.crossTracks = leg.crossTracks.filter(x => x.afterFlag !== fi); crossTracksPlaced = legs.reduce((n, l) => n + (l.crossTracks || []).length, 0); }); }
+    case 'addcross': return openDesc('Cross track before this flag', d => placeCross(fi, d));
+    case 'dict-cross': { const x = leg.crossTracks.find(y => y.afterFlag === fi); if (!x) return; return openDesc('Edit cross track', d => { saveState(); x.desc = d; render(); }, x.desc || ''); }
+    case 'exit': {
+      const d = btn.dataset.dir;
+      if (isAcuteDir(d) && !allowAcute(level)) return alert('Acute turns are not used on TD' + level);
+      saveState();
+      leg.flags.forEach(g => { if (g !== f && !g.isStart) g.direction = null; });
+      f.direction = d; leg.exitDir = d; if (legs[li + 1]) legs[li + 1].entryDir = d;
+      render(); drawMud(); return;
+    }
+    case 'turn': {
+      const d = btn.dataset.dir;
+      if (!setDirection(fi, d)) return;
+      openDesc('Corner note', note => { leg.flags[fi].cornerNote = note || ''; newLeg(); });
+      return;
+    }
+    case 'delcorner': return feDel('Corner note', () => { f.cornerNote = ''; });
+    case 'deldiv': return feDel('Diversion', () => { leg.diversion = null; if (typeof diversion !== 'undefined') diversion = null; });
+    case 'dellbl': { const key = btn.dataset.k; return feDel('Label position', () => { if (f.lblOff) { delete f.lblOff[key]; if (!Object.keys(f.lblOff).length) delete f.lblOff; } }); }
+  }
+}
+function feField(name, val) { // autosave text edits (no full redraw, so a following tap is not lost)
+  const c = feCtx(); if (!c || isViewOnly()) return;
+  const {fi, leg, f} = c;
+  val = String(val || '').trim();
+  if (name === 'aim') {
+    if (!val && !aimPrev(leg, fi)) { alert('The first aim on a leg needs a description.'); feRender(); return; }
+    if (!val) feSnap();
+    saveState(); setBearingFrom(leg, fi, val);
+    if (!val) feShowUndo('Aim deleted');
+    autoSave(); feRender(); return;
+  }
+  saveState();
+  if (name === 'start' && leg.start) leg.start.desc = val;
+  else if (name === 'art' && f.article) f.article.desc = (f.article.label || '') + ': ' + val;
+  else if (name === 'cross') { const x = leg.crossTracks.find(y => y.afterFlag === fi); if (x) x.desc = val; }
+  else if (name === 'corner') f.cornerNote = val;
+  else if (name === 'div' && leg.diversion) leg.diversion.desc = val;
+  else if (name === 'hide') hideDesc = val;
+  autoSave();
+}
+(() => {
+  const ov = document.getElementById('flag-edit');
+  ov.addEventListener('click', e => {
+    const b = e.target.closest('[data-fe]'); if (!b || b.disabled) return;
+    e.preventDefault(); feAct(b.dataset.fe, b);
+  });
+  ov.addEventListener('change', e => { const t = e.target; if (t && t.dataset && t.dataset.feField) feField(t.dataset.feField, t.value); });
+  document.getElementById('fe-prev').onclick = () => feMove(-1);
+  document.getElementById('fe-next').onclick = () => feMove(1);
+  document.getElementById('fe-done').onclick = () => feClose();
+  document.getElementById('fe-ro-unlock').onclick = () => showUnlock('TD' + level + ' is view only in the free version.');
+  document.getElementById('fe-undo-btn').onclick = () => { feRestore(); feHideUndo(); feRender(); };
+  let sx = 0, sy = 0, ok = false;
+  ov.addEventListener('touchstart', e => { const t = e.touches[0]; ok = e.touches.length === 1 && !e.target.closest('textarea, input, #fe-chips'); sx = t.clientX; sy = t.clientY; }, {passive: true});
+  ov.addEventListener('touchend', e => {
+    if (!ok) return; ok = false;
+    const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+    if (document.querySelector('#desc-modal.show, #unlock-modal.show, #exit-modal.show')) return;
+    feMove(dx > 0 ? -1 : 1);
+  }, {passive: true});
+})();
 </script>
 </body>
 </html>
