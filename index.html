@@ -563,7 +563,7 @@ function minDistToTurnM(leg, flagIndex, atFlag, opts) {
   const pos = atFlag ? f.id * FLAG_M : (f.id - 0.5) * FLAG_M;
   const turns = [];
   const legIdx = legs.indexOf(leg);
-  if (legIdx > 0) turns.push(0);
+  if (legIdx > 0) { const f0 = leg.flags.find(x => !x.isStart); turns.push(f0 ? (f0.id - 1) * FLAG_M : 0); } // v8.1: the corner this leg starts from (was 0 m, the track start)
   const lastI = leg.flags.length - 1;
   const isFinal = legIdx === legs.length - 1;
   leg.flags.forEach((fl, i) => {
@@ -860,18 +860,27 @@ function placeArticle(flagIndex, desc, atFlag) {
   drawMud();
 }
 
-function placeCross(flagIndex, desc) {
+// v8.1 CT_AT_FLAG: a cross-track can be AT a flag or BEFORE it (between the previous flag and this one), like articles.
+// Old entries have no atFlag field and mean "before". Both must be at least RULES.cross.minFromTurnM from a turn.
+function crossAllowed(leg, flagIndex, atFlag) {
+  const f = leg && leg.flags[flagIndex];
+  if (!f || f.isStart || !allowCross(level)) return false;
+  return minDistToTurnM(leg, flagIndex, !!atFlag) >= RULES.cross.minFromTurnM;
+}
+function crossPosTxt(c, leg) { const f = leg && leg.flags[c.afterFlag]; const n = f ? f.id : c.afterFlag; return c.atFlag ? 'at F' + n : 'before F' + n; }
+function placeCross(flagIndex, desc, atFlag) {
   if (!allowCross(level)) return;
   const need = R(level).crossCount;
   if (crossTracksPlaced >= need) return alert('This test has ' + need + ' cross tracks on the whole track');
   const tf = currentLeg.flags[flagIndex];
   if (!tf || tf.isStart) return; // CT_COUNT_FIX: no cross-track before the start flag
   if (currentLeg.crossTracks.some(c => c.afterFlag === flagIndex)) return alert('There is already a cross track before this flag');
-  const d = minDistToTurnM(currentLeg, flagIndex, false);
+  const d = minDistToTurnM(currentLeg, flagIndex, !!atFlag);
   if (d < RULES.cross.minFromTurnM) return alert('A cross track must be at least ' + RULES.cross.minFromTurnM + 'm from a turn (this spot is ' + d + 'm)');
   saveState();
   const flagId = currentLeg.flags[flagIndex] ? currentLeg.flags[flagIndex].id : flagIndex;
-  currentLeg.crossTracks.push({ afterFlag: flagIndex, flagId: flagId, desc, gps: null });
+  const ctNew = { afterFlag: flagIndex, flagId: flagId, desc, gps: null }; if (atFlag) ctNew.atFlag = true;
+  currentLeg.crossTracks.push(ctNew);
   crossTracksPlaced++;
   render();
 }
@@ -961,7 +970,7 @@ function render() {
         : `<button type="button" class="add-art-before" data-i="${i}">+ Art before</button> <button type="button" class="add-art-at" data-i="${i}">+ Art at flag</button>`}
       <button type="button" class="drop-gps" data-i="${i}">📍 Drop GPS${f.gps ? ' ✓' : ''}</button>
       ${f.gps ? `<div style="font-size:12px;color:#8bc34a;">${f.gps.lat.toFixed(5)}, ${f.gps.lng.toFixed(5)}</div>` : ''}
-      ${allowCross(level) ? (ct ? `<div class="cross-stub edit-cross" data-i="${i}">Cross: ${ct.desc} <button type="button" class="del-cross" data-i="${i}">✕</button></div>` : (crossTracksPlaced < R(level).crossCount && !f.isStart && minDistToTurnM(currentLeg, i, false) >= RULES.cross.minFromTurnM ? `<button type="button" class="add-cross" data-i="${i}">+ Cross before</button>` : '')) : ''}
+      ${allowCross(level) ? (ct ? `<div class="cross-stub edit-cross" data-i="${i}">Cross ${ct.atFlag ? 'at flag' : 'before'}: ${ct.desc} <button type="button" class="tog-cross" data-i="${i}">⇄ ${ct.atFlag ? 'Before' : 'At flag'}</button> <button type="button" class="del-cross" data-i="${i}">✕</button></div>` : (crossTracksPlaced < R(level).crossCount ? (crossAllowed(currentLeg, i, false) ? `<button type="button" class="add-cross" data-i="${i}">+ Cross before</button>` : '') + (crossAllowed(currentLeg, i, true) ? ` <button type="button" class="add-cross-at" data-i="${i}">+ Cross at flag</button>` : '') : '')) : ''}
     `;
     legView.appendChild(div);
     if (ct) {
@@ -1009,7 +1018,24 @@ function render() {
       e.stopPropagation();
       const i = +btn.dataset.i;
       if (crossTracksPlaced >= R(level).crossCount) return alert('This test has ' + R(level).crossCount + ' cross tracks on the whole track');
-      openDesc('Cross track before this flag', desc => placeCross(i, desc));
+      openDesc('Cross track before this flag', desc => placeCross(i, desc, false));
+    });
+  });
+  legView.querySelectorAll('.add-cross-at').forEach(btn => { // v8.1 CT_AT_FLAG
+    btn.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      const i = +btn.dataset.i;
+      if (crossTracksPlaced >= R(level).crossCount) return alert('This test has ' + R(level).crossCount + ' cross tracks on the whole track');
+      openDesc('Cross track at this flag', desc => placeCross(i, desc, true));
+    });
+  });
+  legView.querySelectorAll('.tog-cross').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      const i = +btn.dataset.i; const c = currentLeg.crossTracks.find(x => x.afterFlag === i); if (!c) return;
+      const at = !c.atFlag;
+      if (!crossAllowed(currentLeg, i, at)) return alert('A cross track must be at least ' + RULES.cross.minFromTurnM + 'm from a turn');
+      saveState(); if (at) c.atFlag = true; else delete c.atFlag; render(); drawMud();
     });
   });
   legView.querySelectorAll('.del-cross').forEach(btn => {
@@ -1052,7 +1078,7 @@ function render() {
     el.addEventListener('click', e => {
       if (e.target.closest('button')) return;
       const i = +el.dataset.i; const c = currentLeg.crossTracks.find(x => x.afterFlag === i); if (!c) return;
-      openDesc('Edit cross track', d => { saveState(); c.desc = d; render(); }, c.desc || '');
+      openDesc('Edit cross track (' + crossPosTxt(c, currentLeg) + ')', d => { saveState(); c.desc = d; render(); }, c.desc || '');
     });
   });
   legView.querySelectorAll('.bearing').forEach(inp => {
@@ -1246,7 +1272,7 @@ function drawFullMap(pw, ph) {
     }));
   }
   // collision boxes: track dots + line samples, then each label as placed
-  labelBoxes = []; labelHits = []; aimHits = []; artRings = []; crossTags = [];
+  labelBoxes = []; labelHits = []; aimHits = []; artRings = []; crossTags = []; ctSegs = [];
   const L0 = legs[0], LN = legs[legs.length - 1];
   points.forEach((p, k) => {
     labelBoxes.push({x: p.x - 9/mapScale, y: p.y - 9/mapScale, w: 18/mapScale, h: 18/mapScale});
@@ -1324,10 +1350,13 @@ function drawFullMap(pw, ph) {
   // v7.8: cross-track lines first (~30 m either side), so rings/labels sit on top and avoid them
   points.forEach((p, idx) => {
     if (!p.cross) return;
-    const mx = p.midX !== undefined ? p.midX : p.x, my = p.midY !== undefined ? p.midY : p.y;
-    const prev = points[Math.max(0, idx-1)] || p;
-    const ang = Math.atan2(p.y - prev.y, p.x - prev.x) + Math.PI/2;
-    const CTH = 30 * fmScale; // scales with the map
+    const atF = !!p.cross.atFlag; // v8.1 CT_AT_FLAG
+    const mx = atF || p.midX === undefined ? p.x : p.midX, my = atF || p.midY === undefined ? p.y : p.midY;
+    const prev = points[Math.max(0, idx-1)] || p, nxt = points[idx+1];
+    let ang = Math.atan2(p.y - prev.y, p.x - prev.x) + Math.PI/2;
+    if (atF && nxt && prev !== p) { const a1 = Math.atan2(p.y - prev.y, p.x - prev.x), a2 = Math.atan2(nxt.y - p.y, nxt.x - p.x); ang = Math.atan2(Math.sin(a1) + Math.sin(a2), Math.cos(a1) + Math.cos(a2)) + Math.PI/2; }
+    const CTH = Math.max(30 * fmScale, 36 / mapScale); // scales with the map; v8.1 CT_VISIBLE: at least 20 px beyond a 16 px article ring on both sides, drawn behind icons
+    ctSegs.push({x1: mx + Math.cos(ang)*CTH, y1: my + Math.sin(ang)*CTH, x2: mx - Math.cos(ang)*CTH, y2: my - Math.sin(ang)*CTH});
     fctx.strokeStyle = '#00e5ff'; fctx.lineWidth = 4 / mapScale;
     fctx.beginPath(); // ct-line-30m
     fctx.moveTo(mx + Math.cos(ang)*CTH, my + Math.sin(ang)*CTH);
@@ -1345,7 +1374,12 @@ function drawFullMap(pw, ph) {
     let ringR = 0; // v7.6: radius of an article ring sitting on this flag (aim arrow base touches it)
     if (p.article) {
       // v7.6 article rings: label (A0, A1...) inside a white ring, description adjacent
-      const useMid = !p.articleAtFlag && p.midX !== undefined;
+      const useMid0 = !p.articleAtFlag && p.midX !== undefined;
+      // v8.1 CT_VISIBLE: cross-track lines stay BEHIND rings and dots (clean icons) but are always long enough to show
+      // well outside a ring on both sides (see CTH in the cross-track pre-pass)
+      const offAtFlag = false;
+      const useMid = useMid0;
+      const amx = offAtFlag ? p.x : p.midX, amy = offAtFlag ? p.y : p.midY; // anchor of an off-line ring
       const RR = 16 / mapScale, lab = p.artLabel || (String(p.article).match(/^A\d+/) || [''])[0];
       const descTxt = String(p.article).replace(/^A\d+:\s*/, '');
       const aref = {o: p.fo || L0, k: 'art'};
@@ -1353,9 +1387,9 @@ function drawFullMap(pw, ph) {
       const horiz = Math.abs(p.x - prev.x) > Math.abs(p.y - prev.y);
       let cx = p.x, cy = p.y;
       if (useMid) {
-        const dx0 = p.midX, dy0 = p.midY;
+        const dx0 = amx, dy0 = amy;
         // true position: small white dot on the track
-        fctx.fillStyle = '#fff'; fctx.beginPath(); fctx.arc(dx0, dy0, 3.5/mapScale, 0, Math.PI*2); fctx.fill(); // art-dot
+        if (!offAtFlag) { fctx.fillStyle = '#fff'; fctx.beginPath(); fctx.arc(dx0, dy0, 3.5/mapScale, 0, Math.PI*2); fctx.fill(); } // art-dot
         const o = getLblOff(aref);
         if (o) { cx = dx0 + o[0]; cy = dy0 + o[1]; }
         else {
@@ -1389,7 +1423,7 @@ function drawFullMap(pw, ph) {
       const off = RR + 6 / mapScale;
       if (useMid) {
         // ring + description move together (offset = ring centre relative to the track dot)
-        const cur = [cx - p.midX, cy - p.midY];
+        const cur = [cx - amx, cy - amy];
         labelHits.push({ref: aref, cur, box: ringBox});
         if (descTxt) {
           if (horiz && !printMode) placeLinesRot(wrapLines(descTxt), cx + 4/mapScale, cy - off);
@@ -1402,10 +1436,10 @@ function drawFullMap(pw, ph) {
       }
     }
     if (p.cross) {
-      const mx = p.midX !== undefined ? p.midX : p.x;
-      const my = p.midY !== undefined ? p.midY : p.y;
+      const mx = p.cross.atFlag || p.midX === undefined ? p.x : p.midX;
+      const my = p.cross.atFlag || p.midY === undefined ? p.y : p.midY;
       // v7.8: short tag CT1, CT2... in track order; full note on tap (screen) and in the PDF legend
-      const ct = {tag: 'CT' + (crossTags.length + 1), desc: p.cross.desc || ''};
+      const ct = {tag: 'CT' + (crossTags.length + 1), desc: p.cross.desc || '', pos: (p.cross.atFlag ? 'at F' : 'before F') + p.flag};
       crossTags.push(ct);
       fctx.fillStyle = '#00e5ff'; fctx.font = 'bold ' + (13/mapScale) + 'px sans-serif';
       wrapText(ct.tag, mx+8/mapScale, my+14/mapScale, {o: p.fo || L0, k: 'cross', ct});
@@ -1416,21 +1450,35 @@ function drawFullMap(pw, ph) {
       // tip touching the flag dot / article ring edge. No incoming segment (track start): after the flag.
       const nx = points[idx+1], pv = idx > 0 ? points[idx-1] : null;
       // v7.8: 32 x 11 px on screen; v7.9: PDF arrow scales with the PDF map scale (smaller when a short track is zoomed in), 20-32 px
-      const AL = printMode ? Math.max(20, Math.min(32, 60 / (fmScale || 1))) : 32 / mapScale, AW = AL * 11 / 64; // pdf-arrow-scale
+      const AL = printMode ? Math.max(20, Math.min(32, 60 / ((fmScale || 1) * mapScale))) / mapScale : 32 / mapScale, AW = AL * 11 / 64; // pdf-arrow-scale
       const RB = (ringR ? ringR + 1.25 / mapScale : 7 / mapScale);
       let ux, uy, bx0, by0, tx0, ty0;
-      if (pv && (pv.x !== p.x || pv.y !== p.y)) {
+      // v8.1 AIM_ARROW_BEFORE (replaces the v8.0.2 flip rule): the arrow ALWAYS sits just before its flag on the
+      // incoming segment, tip touching the flag dot / ring. If space is tight it shrinks to fit clear of the previous
+      // flag's dot or article ring (e.g. A0); if even the smallest arrow cannot fit it moves beside the line.
+      const ringAt = q => { const r = q && artRings.find(z => z.p === q && z.atFlag); return r ? r.r + 1.25 / mapScale : 7 / mapScale; };
+      const GAP = 3 / mapScale, MINAL = 10 / mapScale;
+      let AL2 = AL, side = 0;
+      const into = !!(pv && (pv.x !== p.x || pv.y !== p.y));
+      if (into) {
+        const room = Math.hypot(p.x - pv.x, p.y - pv.y) - RB - ringAt(pv) - GAP;
+        AL2 = Math.max(MINAL, Math.min(AL, room));
+        if (room < MINAL) side = 1; // no room on the line: sit beside it, still before the flag
+      }
+      const AWf = AL2 * 11 / 64;
+      if (into) {
         const a0 = Math.atan2(p.y - pv.y, p.x - pv.x); ux = Math.cos(a0); uy = Math.sin(a0);
-        tx0 = p.x - ux*RB; ty0 = p.y - uy*RB; bx0 = tx0 - ux*AL; by0 = ty0 - uy*AL;
+        tx0 = p.x - ux*RB; ty0 = p.y - uy*RB; bx0 = tx0 - ux*AL2; by0 = ty0 - uy*AL2;
+        if (side) { const sh = ringAt(pv) + (AL2 * 11 / 64) + 2 / mapScale; tx0 -= uy*sh; bx0 -= uy*sh; ty0 += ux*sh; by0 += ux*sh; }
       } else {
-        const a0 = nx ? Math.atan2(nx.y - p.y, nx.x - p.x) : -Math.PI/2; ux = Math.cos(a0); uy = Math.sin(a0);
-        bx0 = p.x + ux*RB; by0 = p.y + uy*RB; tx0 = bx0 + ux*AL; ty0 = by0 + uy*AL;
+        const a0 = nx ? Math.atan2(nx.y - p.y, nx.x - p.x) : (pv ? Math.atan2(p.y - pv.y, p.x - pv.x) : -Math.PI/2); ux = Math.cos(a0); uy = Math.sin(a0);
+        bx0 = p.x + ux*RB; by0 = p.y + uy*RB; tx0 = bx0 + ux*AL2; ty0 = by0 + uy*AL2;
       }
       fctx.fillStyle = '#fff';
       fctx.beginPath(); // aim-arrow-in
       fctx.moveTo(tx0, ty0);
-      fctx.lineTo(bx0 - uy*AW, by0 + ux*AW);
-      fctx.lineTo(bx0 + uy*AW, by0 - ux*AW);
+      fctx.lineTo(bx0 - uy*AWf, by0 + ux*AWf);
+      fctx.lineTo(bx0 + uy*AWf, by0 - ux*AWf);
       fctx.closePath(); fctx.fill();
       aimHits.push({p, cx: (bx0 + tx0)/2, cy: (by0 + ty0)/2, bx: bx0, by: by0, tx: tx0, ty: ty0, rb: RB});
       fctx.fillStyle = '#fff'; // aim text same colour as the arrow, slightly smaller than flag labels
@@ -1440,7 +1488,7 @@ function drawFullMap(pw, ph) {
       const off = 28 / mapScale;
       const aref = {o: p.fo, k: 'aim', p};
       // v7.7: aim note runs along the arrowhead, beside it, never upside-down
-      placeLinesAng(wrapLines(p.bearing), (bx0 + tx0)/2, (by0 + ty0)/2, Math.atan2(uy, ux), AW + 4/mapScale, aref);
+      placeLinesAng(wrapLines(p.bearing), (bx0 + tx0)/2, (by0 + ty0)/2, Math.atan2(uy, ux), AWf + 4/mapScale, aref);
       fctx.strokeStyle = '#ffeb3b';
     }
     // Distance + cumulative at end of every leg (including final)
@@ -1491,7 +1539,7 @@ function drawFullMap(pw, ph) {
     const vo = isViewOnly(); // v7.8: free-mode TD4+ = view only (no editors)
     // v7.8: tap a cross-track tag (CT1, CT2...) -> full note
     for (const h of labelHits) if (h.ref.k === 'cross' && h.ref.ct && mx >= h.box.x && mx <= h.box.x + h.box.w && my >= h.box.y && my <= h.box.y + h.box.h) {
-      alert(h.ref.ct.tag + ' – cross-track' + (h.ref.ct.desc ? ':\n\n' + h.ref.ct.desc : ' (no note)'));
+      alert(h.ref.ct.tag + ' – cross-track' + (h.ref.ct.pos ? ' ' + h.ref.ct.pos : '') + (h.ref.ct.desc ? ':\n\n' + h.ref.ct.desc : ' (no note)'));
       return;
     }
     // v7.5: tap an aim arrow or its description -> bearing / aim editor
@@ -1788,7 +1836,7 @@ function wrapLines(text) {
 let labelBoxes = [];
 let printMode = false;
 // v7.5 move-labels: offsets stored in track units (map px / fit scale) as optional lblOff:{key:[dx,dy]} on flags and legs
-let moveLabels = false, fmScale = 1, labelHits = [], aimHits = [], artRings = [], crossTags = [];
+let moveLabels = false, fmScale = 1, labelHits = [], aimHits = [], artRings = [], crossTags = [], ctSegs = [];
 function getLblOff(ref) {
   const o = ref && ref.o && ref.o.lblOff && ref.o.lblOff[ref.k];
   return Array.isArray(o) && isFinite(o[0]) && isFinite(o[1]) ? [o[0] * fmScale, o[1] * fmScale] : null;
@@ -1994,8 +2042,9 @@ function makeTrackPdf(info) {
   const sv0 = [mapScale, mapTx, mapTy]; mapScale = 1; mapTx = 0; mapTy = 0;
   drawFullMap(700, 700); [mapScale, mapTx, mapTy] = sv0;
   const ext = window.lastTrackExtent || [1, 1];
-  const fit = (pw, ph) => Math.min((pw - 82) / ext[0], (ph - 239) / ext[1]);
-  const land = fit(1754, 1240) > fit(1240, 1754) * 1.05;
+  // v8.1 PDF_FIT_LANDSCAPE: landscape whenever the track is wider than it is tall (the old rule compared fits after the
+  // header/legend and needed 5% more, so wide-ish tracks such as a TD5 heading right/up-right still came out portrait)
+  const land = ext[0] > ext[1];
   const PW = land ? 1754 : 1240, PH = land ? 1240 : 1754; // A4 @150dpi
   const pc = document.createElement('canvas'); pc.width = PW; pc.height = PH;
   const g = pc.getContext('2d');
@@ -2024,7 +2073,7 @@ function makeTrackPdf(info) {
   g.font = '20px sans-serif';
   const legLines = [];
   (crossTags || []).forEach(ct => {
-    const words = (ct.tag + ': ' + (ct.desc || '(no note)')).split(/\s+/); let line = '';
+    const words = (ct.tag + (ct.pos ? ' (' + ct.pos + ')' : '') + ': ' + (ct.desc || '(no note)')).split(/\s+/); let line = '';
     words.forEach(w => { const tt = line ? line + ' ' + w : w; if (line && g.measureText(tt).width > PW - 2 * M - 20) { legLines.push(line); line = '    ' + w; } else line = tt; });
     if (line) legLines.push(line);
   });
@@ -2037,8 +2086,23 @@ function makeTrackPdf(info) {
   // draw map at fixed size, unzoomed, then convert to black ink on white
   const sv = [mapScale, mapTx, mapTy]; mapScale = 1; mapTx = 0; mapTy = 0; printMode = true;
   const IW = PW - 2 * M - 12, IH = PH - MY - M - 12 - legendH;
-  const MW = 700, MH = 700 * IH / IW;
-  drawFullMap(MW, MH);
+  // v8.1 PDF_FIT_LANDSCAPE: draw at a finer resolution (text ~1.8x on paper instead of ~2.4x) and fit the whole drawing,
+  // labels included, into the map box: grow the track to use the space, shrink it if any label would run off the page
+  const MW = Math.round(IW / 1.8), MH = Math.round(MW * IH / IW), PAD = 6;
+  const measure = () => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    labelBoxes.forEach(b => { x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); });
+    return {x0, y0, x1, y1, X0: x0 * mapScale + mapTx, Y0: y0 * mapScale + mapTy, X1: x1 * mapScale + mapTx, Y1: y1 * mapScale + mapTy}; };
+  let fitM = null;
+  for (let it = 0; it < 10; it++) {
+    drawFullMap(MW, MH); fitM = measure();
+    const k = Math.min((MW - 2 * PAD) / (fitM.X1 - fitM.X0 || 1), (MH - 2 * PAD) / (fitM.Y1 - fitM.Y0 || 1));
+    const inside = fitM.X0 >= PAD - 0.5 && fitM.Y0 >= PAD - 0.5 && fitM.X1 <= MW - PAD + 0.5 && fitM.Y1 <= MH - PAD + 0.5;
+    if (inside && (k < 1.04 || mapScale >= 2.5)) break;
+    const ns = Math.max(0.25, Math.min(2.5, mapScale * (k > 1 ? Math.pow(k, 0.85) : k * 0.97)));
+    mapScale = ns; mapTx = MW / 2 - (fitM.x0 + fitM.x1) / 2 * ns; mapTy = MH / 2 - (fitM.y0 + fitM.y1) / 2 * ns;
+    if (it === 9) { drawFullMap(MW, MH); fitM = measure(); }
+  }
+  window.lastPdfFit = {land, MW, MH, PAD, X0: fitM.X0, Y0: fitM.Y0, X1: fitM.X1, Y1: fitM.Y1, scale: mapScale};
   const img = fctx.getImageData(0, 0, MW, MH), d = img.data;
   for (let i = 0; i < d.length; i += 4) {
     const ink = Math.max(d[i], d[i+1], d[i+2]);
@@ -2287,7 +2351,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.0.1';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.1';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
@@ -2300,7 +2364,7 @@ const TF_NAMES = {
   diversion: {side: 'side', desc: 'description', atFlag: 'at flag'},
   flag: {bearing: 'aim', direction: 'turn', cornerNote: 'corner note', gps: 'GPS', isStart: 'start flag', article: 'article', id: 'id', lblOff: 'label offsets'},
   article: {label: 'label', atFlag: 'at the flag', desc: 'description', gps: 'GPS'},
-  cross: {afterFlag: 'after flag number', flagId: 'flag', desc: 'description', gps: 'GPS'},
+  cross: {afterFlag: 'after flag number', flagId: 'flag', atFlag: 'at the flag', desc: 'description', gps: 'GPS'},
   label: {x: 'x', y: 'y'}
 };
 const tfNum = /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/;
@@ -2653,13 +2717,15 @@ function feRender() {
   const ct = (leg.crossTracks || []).find(x => x.afterFlag === fi);
   if (ct) {
     const tag = feCtTag(li, fi);
-    h.push(`<div class="card cross" data-card="cross"><h3>Cross-track ${tag} before this flag <span class="tag">~30 m each side</span></h3>`
-      + `<textarea class="field cross" rows="2" data-fe-field="cross"${dis}>${feEsc(ct.desc || '')}</textarea>`
+    const at = !!ct.atFlag, canAtC = crossAllowed(leg, fi, true), canBeC = crossAllowed(leg, fi, false);
+    h.push(`<div class="card cross" data-card="cross"><h3>Cross-track ${tag} ${at ? 'at' : 'before'} this flag <span class="tag">~30 m each side</span></h3>`
+      + `<div class="row seg"><button type="button" data-fe="ct-at" class="${at ? 'on' : ''}"${(!at && !canAtC) || vo ? ' disabled' : ''}>At this flag</button><button type="button" data-fe="ct-before" class="${!at ? 'on' : ''}"${(at && !canBeC) || vo ? ' disabled' : ''}>Before this flag</button></div>`
+      + `<textarea style="margin-top:8px" class="field cross" rows="2" data-fe-field="cross"${dis}>${feEsc(ct.desc || '')}</textarea>`
       + (vo ? '' : `<div class="row"><button type="button" data-fe="dict-cross">🎤 Dictate</button><button type="button" class="del" data-fe="delcross">🗑 Delete ${tag}</button></div>`)
       + '</div>');
-  } else if (!vo && !f.isStart && allowCross(level) && crossTracksPlaced < (rules.crossCount || 0)
-             && minDistToTurnM(leg, fi, false) >= RULES.cross.minFromTurnM) {
-    adds.push(`<button type="button" class="add" data-fe="addcross">➕ Cross-track before this flag</button>`);
+  } else if (!vo && !f.isStart && allowCross(level) && crossTracksPlaced < (rules.crossCount || 0)) { // v8.1 CT_AT_FLAG
+    if (crossAllowed(leg, fi, true)) adds.push(`<button type="button" class="add" data-fe="addcross-at">➕ Cross-track at this flag</button>`);
+    if (crossAllowed(leg, fi, false)) adds.push(`<button type="button" class="add" data-fe="addcross">➕ Cross-track before this flag</button>`);
   }
   // 5. corner / turn (last flag of a leg)
   if (isLast && !f.isStart) {
@@ -2734,8 +2800,15 @@ function feAct(act, btn) {
     case 'dict-art': { const a = f.article; if (!a) return; const pre = a.label + ': '; const cur = a.desc.startsWith(pre) ? a.desc.slice(pre.length) : a.desc;
       return openDesc('Edit article ' + a.label, d => { saveState(); a.desc = pre + d; render(); drawMud(); }, cur); }
     case 'delcross': { const tag = feCtTag(li, fi); return feDel('Cross-track ' + tag, () => { leg.crossTracks = leg.crossTracks.filter(x => x.afterFlag !== fi); crossTracksPlaced = legs.reduce((n, l) => n + (l.crossTracks || []).length, 0); }); }
-    case 'addcross': return openDesc('Cross track before this flag', d => placeCross(fi, d));
-    case 'dict-cross': { const x = leg.crossTracks.find(y => y.afterFlag === fi); if (!x) return; return openDesc('Edit cross track', d => { saveState(); x.desc = d; render(); }, x.desc || ''); }
+    case 'addcross': return openDesc('Cross track before this flag', d => placeCross(fi, d, false));
+    case 'addcross-at': return openDesc('Cross track at this flag', d => placeCross(fi, d, true));
+    case 'ct-at': case 'ct-before': {
+      const x = leg.crossTracks.find(y => y.afterFlag === fi); const at = act === 'ct-at';
+      if (!x || !!x.atFlag === at) return;
+      if (!crossAllowed(leg, fi, at)) return alert('A cross track must be at least ' + RULES.cross.minFromTurnM + 'm from a turn');
+      saveState(); if (at) x.atFlag = true; else delete x.atFlag; render(); drawMud(); return;
+    }
+    case 'dict-cross': { const x = leg.crossTracks.find(y => y.afterFlag === fi); if (!x) return; return openDesc('Edit cross track (' + crossPosTxt(x, leg) + ')', d => { saveState(); x.desc = d; render(); }, x.desc || ''); }
     case 'exit': {
       const d = btn.dataset.dir;
       if (isAcuteDir(d) && !allowAcute(level)) return alert('Acute turns are not used on TD' + level);
