@@ -490,8 +490,32 @@ function fixFirstLegAim() {
   if (!first) return;
   for (const x of real) { if (x === first) break; if (!x.bearing) x.bearing = first.bearing; }
 }
+// v8.0.1 CT_COUNT_FIX: the cross-track count is always the real number of cross-tracks on the track.
+// Ghost entries (before the start flag, pointing past the leg's flags, or two on one flag) were counted but
+// never drawn, so the count could say 2 of 2 with only one on the map. Clean them and recount on every render/load.
+function fixCrossTracks() {
+  legs.forEach(leg => {
+    const keep = [];
+    (Array.isArray(leg.crossTracks) ? leg.crossTracks : []).forEach(ct => {
+      if (!ct || typeof ct !== 'object') return;
+      let i = Number(ct.afterFlag);
+      if (!Number.isInteger(i) || !leg.flags[i]) { // old entry without a usable index: try its flag id
+        const j = leg.flags.findIndex(f => ct.flagId !== undefined && f.id === ct.flagId && !f.isStart);
+        if (j < 0) return; i = j;
+      }
+      if (leg.flags[i].isStart) return; // nothing to cross before the start
+      const dup = keep.find(k => k.afterFlag === i);
+      if (dup) { if (ct.desc && ct.desc !== dup.desc) dup.desc = dup.desc ? dup.desc + '; ' + ct.desc : ct.desc; return; }
+      ct.afterFlag = i; ct.flagId = leg.flags[i].id;
+      keep.push(ct);
+    });
+    leg.crossTracks = keep;
+  });
+  crossTracksPlaced = legs.reduce((n, l) => n + l.crossTracks.length, 0);
+}
 function normalizeTrack() {
   fixFirstLegAim();
+  fixCrossTracks();
   legs.forEach((leg, li) => {
     const flags = leg.flags || [];
     if (li === legs.length - 1) return; // leg in progress: leave as entered
@@ -840,6 +864,9 @@ function placeCross(flagIndex, desc) {
   if (!allowCross(level)) return;
   const need = R(level).crossCount;
   if (crossTracksPlaced >= need) return alert('This test has ' + need + ' cross tracks on the whole track');
+  const tf = currentLeg.flags[flagIndex];
+  if (!tf || tf.isStart) return; // CT_COUNT_FIX: no cross-track before the start flag
+  if (currentLeg.crossTracks.some(c => c.afterFlag === flagIndex)) return alert('There is already a cross track before this flag');
   const d = minDistToTurnM(currentLeg, flagIndex, false);
   if (d < RULES.cross.minFromTurnM) return alert('A cross track must be at least ' + RULES.cross.minFromTurnM + 'm from a turn (this spot is ' + d + 'm)');
   saveState();
@@ -934,7 +961,7 @@ function render() {
         : `<button type="button" class="add-art-before" data-i="${i}">+ Art before</button> <button type="button" class="add-art-at" data-i="${i}">+ Art at flag</button>`}
       <button type="button" class="drop-gps" data-i="${i}">📍 Drop GPS${f.gps ? ' ✓' : ''}</button>
       ${f.gps ? `<div style="font-size:12px;color:#8bc34a;">${f.gps.lat.toFixed(5)}, ${f.gps.lng.toFixed(5)}</div>` : ''}
-      ${allowCross(level) ? (ct ? `<div class="cross-stub edit-cross" data-i="${i}">Cross: ${ct.desc} <button type="button" class="del-cross" data-i="${i}">✕</button></div>` : (crossTracksPlaced < R(level).crossCount ? `<button type="button" class="add-cross" data-i="${i}">+ Cross before</button>` : '')) : ''}
+      ${allowCross(level) ? (ct ? `<div class="cross-stub edit-cross" data-i="${i}">Cross: ${ct.desc} <button type="button" class="del-cross" data-i="${i}">✕</button></div>` : (crossTracksPlaced < R(level).crossCount && !f.isStart && minDistToTurnM(currentLeg, i, false) >= RULES.cross.minFromTurnM ? `<button type="button" class="add-cross" data-i="${i}">+ Cross before</button>` : '')) : ''}
     `;
     legView.appendChild(div);
     if (ct) {
@@ -992,7 +1019,7 @@ function render() {
       const i = +btn.dataset.i;
       saveState();
       currentLeg.crossTracks = currentLeg.crossTracks.filter(c => c.afterFlag !== i);
-      crossTracksPlaced = Math.max(0, crossTracksPlaced - 1);
+      crossTracksPlaced = legs.reduce((n, l) => n + (l.crossTracks || []).length, 0);
       render();
     });
   });
@@ -1190,7 +1217,7 @@ function drawFullMap(pw, ph) {
       points.push({x, y, leg: li, flag: leg.flags[i].id, fo: leg.flags[i],
         article: leg.flags[i].article ? leg.flags[i].article.desc : null, artLabel: leg.flags[i].article ? leg.flags[i].article.label || '' : '',
         articleAtFlag: leg.flags[i].article ? !!leg.flags[i].article.atFlag : false,
-        cross: leg.crossTracks.find(ct => (ct.flagId !== undefined && ct.flagId === leg.flags[i].id) || ct.afterFlag === i), 
+        cross: leg.crossTracks.find(ct => ct.afterFlag === i), 
         bearing: leg.flags[i].bearing,
         midX, midY,
         dir: leg.flags[i].direction,
@@ -2260,7 +2287,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.0';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.0.1';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
@@ -2530,7 +2557,7 @@ function feCtTag(li, fi) { // same numbering as the map (track order)
   for (let L = 0; L < legs.length; L++) {
     const leg = legs[L], s0 = leg.flags[0] && leg.flags[0].isStart ? 1 : 0;
     for (let i = s0; i < leg.flags.length; i++) {
-      const c = (leg.crossTracks || []).find(ct => (ct.flagId !== undefined && ct.flagId === leg.flags[i].id) || ct.afterFlag === i);
+      const c = (leg.crossTracks || []).find(ct => ct.afterFlag === i);
       if (c) { n++; if (L === li && i === fi) return 'CT' + n; }
     }
   }
@@ -2549,6 +2576,7 @@ function feAimInfo(leg, fi) { // is this flag the start of an aim on its leg? wh
 const FE_DIRS = { '90L':'90° L', '90R':'90° R', 'obtL':'Obtuse L', 'obtR':'Obtuse R', 'acL':'Acute L', 'acR':'Acute R' };
 const FE_LBL = { aim: 'aim note', art: 'article ring', cross: 'cross-track tag', dist: 'distance note' };
 function feRender() {
+  try { fixCrossTracks(); } catch (e) {}
   const c = feCtx(); if (!c) { feClose(); return; }
   const {li, fi, leg, f} = c;
   const vo = isViewOnly(), dis = vo ? ' disabled' : '';
