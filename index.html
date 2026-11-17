@@ -1397,6 +1397,7 @@ function drawFullMap(pw, ph) {
       labelBoxes.push({x: sx - 3/mapScale, y: sy - 3/mapScale, w: 6/mapScale, h: 6/mapScale}); }
   });
   fctx.strokeStyle = '#ffeb3b';
+  const arrowTris = []; // v8.2.1 ARROW_MIN_LINEWIDTH: arrows are composited after the loop, on top of the line, behind icons
   points.forEach((p, idx) => {
     const newAim = !!(p.bearing && p.bearing !== p.prevBearing && p.fo);
     fctx.fillStyle = '#ffeb3b';
@@ -1481,7 +1482,9 @@ function drawFullMap(pw, ph) {
       const nx = points[idx+1], pv = idx > 0 ? points[idx-1] : null;
       // v7.8: 32 x 11 px on screen; v7.9: PDF arrow scales with the PDF map scale (smaller when a short track is zoomed in), 20-32 px
       const AMIN = (printMode ? (window.pdfArrowMinPx || 13) : 12) / mapScale; // v8.2b ARROW_MIN_SIZE: >= ~4 mm printed on the PDF, >= 12 px on screen
-      const AL = Math.max(AMIN, 10 * (fmScale || 1)), // v8.2 ARROW_10M: arrowhead = 10 m of track (1/5 of a 50 m flag gap), scales with zoom on map and PDF
+      // v8.2.1 ARROW_MIN_LINEWIDTH: width >= 3x the track line (3 px), length = 4x width (4:1) -> at least 36 px of map, on screen and PDF
+      const AMINW = Math.max(AMIN, 4 * 3 * (3 / mapScale));
+      const AL = Math.max(AMINW, 10 * (fmScale || 1)), // v8.2 ARROW_10M: arrowhead = 10 m of track (1/5 of a 50 m flag gap), scales with zoom on map and PDF
         AW = AL / 8; // pdf-arrow-scale; v8.2c ARROW_4_TO_1: full width = AL/4
       const RB = (ringR ? ringR + 1.25 / mapScale : 7 / mapScale);
       let ux, uy, bx0, by0, tx0, ty0;
@@ -1489,13 +1492,13 @@ function drawFullMap(pw, ph) {
       // incoming segment, tip touching the flag dot / ring. If space is tight it shrinks to fit clear of the previous
       // flag's dot or article ring (e.g. A0); if even the smallest arrow cannot fit it moves beside the line.
       const ringAt = q => { const r = q && artRings.find(z => z.p === q && z.atFlag); return r ? r.r + 1.25 / mapScale : 7 / mapScale; };
-      const GAP = 3 / mapScale, MINAL = Math.min(AL, AMIN); // ARROW_MIN_SIZE: never shrink below the minimum
+      const GAP = 3 / mapScale, MINAL = Math.min(AL, AMINW); // ARROW_MIN_SIZE: never shrink below the minimum
       let AL2 = AL, side = 0;
       const into = !!(pv && (pv.x !== p.x || pv.y !== p.y));
       if (into) {
         const room = Math.hypot(p.x - pv.x, p.y - pv.y) - RB - ringAt(pv) - GAP;
         AL2 = Math.max(MINAL, Math.min(AL, room));
-        if (room < MINAL) side = 1; // no room on the line: sit beside it, still before the flag
+        if (room < MINAL / 2) side = 1; // v8.2.1: stays centred on the leg (base tucked behind the previous icon) unless less than half fits
       }
       const AWf = AL2 / 8; // ARROW_4_TO_1: length:width = 4:1 (half-width AL/8), filled
       if (into) {
@@ -1506,12 +1509,8 @@ function drawFullMap(pw, ph) {
         const a0 = nx ? Math.atan2(nx.y - p.y, nx.x - p.x) : (pv ? Math.atan2(p.y - pv.y, p.x - pv.x) : -Math.PI/2); ux = Math.cos(a0); uy = Math.sin(a0);
         bx0 = p.x + ux*RB; by0 = p.y + uy*RB; tx0 = bx0 + ux*AL2; ty0 = by0 + uy*AL2;
       }
-      fctx.fillStyle = '#fff';
-      fctx.beginPath(); // aim-arrow-in
-      fctx.moveTo(tx0, ty0);
-      fctx.lineTo(bx0 - uy*AWf, by0 + ux*AWf);
-      fctx.lineTo(bx0 + uy*AWf, by0 - ux*AWf);
-      fctx.closePath(); fctx.fill();
+      // aim-arrow-in (filled; drawn after the loop, see ARROW_MIN_LINEWIDTH)
+      arrowTris.push([tx0, ty0, bx0 - uy*AWf, by0 + ux*AWf, bx0 + uy*AWf, by0 - ux*AWf]);
       aimHits.push({p, cx: (bx0 + tx0)/2, cy: (by0 + ty0)/2, bx: bx0, by: by0, tx: tx0, ty: ty0, rb: RB});
       fctx.fillStyle = '#fff'; // aim text same colour as the arrow, slightly smaller than flag labels
       fctx.font = 'bold ' + (12/mapScale) + 'px sans-serif';
@@ -1560,6 +1559,17 @@ function drawFullMap(pw, ph) {
       fctx.textAlign = 'left';
     }
   });
+  if (arrowTris.length) { // ARROW_MIN_LINEWIDTH: draw arrows on a layer, cut the flag dots / article rings out, then lay it over the line
+    const ac = window.__arrowLayer || (window.__arrowLayer = document.createElement('canvas'));
+    ac.width = fullcanvas.width; ac.height = fullcanvas.height;
+    const a = ac.getContext('2d'); a.setTransform(fctx.getTransform());
+    a.fillStyle = '#fff';
+    arrowTris.forEach(t => { a.beginPath(); a.moveTo(t[0], t[1]); a.lineTo(t[2], t[3]); a.lineTo(t[4], t[5]); a.closePath(); a.fill(); });
+    a.globalCompositeOperation = 'destination-out'; a.fillStyle = '#000';
+    points.forEach(q => { a.beginPath(); a.arc(q.x, q.y, 7 / mapScale, 0, Math.PI * 2); a.fill(); });
+    artRings.forEach(z => { a.beginPath(); a.arc(z.cx, z.cy, z.r + 1.25 / mapScale, 0, Math.PI * 2); a.fill(); });
+    fctx.save(); fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.drawImage(ac, 0, 0); fctx.restore();
+  }
   fctx.restore();
   fullcanvas.onclick = e => {
     const rect = fullcanvas.getBoundingClientRect();
@@ -2406,7 +2416,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.2c';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.2.1';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
