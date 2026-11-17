@@ -164,9 +164,20 @@ button:active { transform: scale(0.95); }
   <button id="view-map">Full Map</button>
   <button id="load-btn" type="button">Load</button>
   <button id="new-nosave" type="button">New</button>
-  <button id="export-btn" type="button">Export</button>
+  <button id="export-btn" type="button">📤 Send track</button><!-- SEND_TRACK -->
 </div>
 
+<div id="pdfready-modal" class="modal" style="z-index:420;"><!-- PDF_VIEW_SEND -->
+  <div class="modal-content">
+    <h3 style="color:#ffeb3b;">PDF ready</h3>
+    <p id="pdfready-name" style="font-size:13px;word-break:break-all;"></p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+      <button id="pdfready-view" type="button" style="background:#2196f3;color:#000;">👁 View PDF</button>
+      <button id="pdfready-send" type="button" style="background:#4caf50;color:#000;">📤 Send PDF</button>
+      <button id="pdfready-close" type="button">Close</button>
+    </div>
+  </div>
+</div>
 <div id="exit-modal" class="modal" style="z-index:400;">
   <div class="modal-content">
     <h3 id="exit-title" style="color:#ff9800;">Corner moved: choose exit</h3>
@@ -434,7 +445,7 @@ document.getElementById('start-level').addEventListener('change', e => {
 // view-only guard for TD4+ tracks in free mode: nothing is lost, editing is just blocked
 document.addEventListener('click', e => {
   if (!isViewOnly() || !e.target || !e.target.closest) return;
-  const hit = e.target.closest('#add-flag, #del-flag, #div-l-btn, #div-r-btn, #finish-btn, #undo, #move-labels-btn, #leg-view button, #leg-view .bearing, #leg-view .edit-art, #leg-view input, #leg-view textarea, #leg-banner button:not(.flag-chip)');
+  const hit = e.target.closest('#add-flag, #del-flag, #div-l-btn, #div-r-btn, #finish-btn, #undo, #move-labels-btn, #leg-view button, #leg-view .bearing, #leg-view .edit-art, #leg-view input, #leg-view textarea, #leg-banner button:not(.flag-chip):not(.leg-nav)');
   if (hit) { e.stopPropagation(); e.preventDefault(); showUnlock('TD' + level + ' is view only in the free version.'); }
 }, true);
 
@@ -590,6 +601,8 @@ function articleCheck(leg, flagIndex, atFlag, opts) {
   }
   return null;
 }
+// v8.2c WORDING_FIX: '1 article', '2 articles'
+function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
 function placementBlockedByTurn(leg, flagIndex) {
   const turnM = leg.flags[flagIndex].id * FLAG_M;
   for (const f of leg.flags) {
@@ -602,24 +615,28 @@ function placementBlockedByTurn(leg, flagIndex) {
   for (const c of (leg.crossTracks || [])) {
     const fl = (c.afterFlag != null && leg.flags[c.afterFlag]) || leg.flags.find(x => x.id === c.flagId);
     if (!fl) continue;
-    const pos = (fl.id - 0.5) * FLAG_M;
+    const pos = c.atFlag ? fl.id * FLAG_M : (fl.id - 0.5) * FLAG_M; // v8.2b TURN_CHECK_CT_POS: at the flag vs before it
     if (Math.abs(pos - turnM) < RULES.cross.minFromTurnM) {
-      return 'Move the cross track first — it must be at least ' + RULES.cross.minFromTurnM + 'm from a turn';
+      return 'Move the cross-track first — it must be at least ' + RULES.cross.minFromTurnM + 'm from a turn';
     }
   }
   return null;
 }
+function changesOfDirection() { return legs.slice(0, -1).filter(l => l.exitDir && getTurn(l.exitDir)).length; } // TALLY_BY_DIRECTION
 function rulesProblems() {
   const r = R(level);
   const problems = [];
   const dist = totalDist();
   const acutes = countAcutes();
-  if (r.maxLegs && legs.length > r.maxLegs) problems.push('Legs ' + legs.length + ' (TD' + level + ' has exactly ' + r.maxLegs + ')');
-  if (legs.length < r.minLegs) problems.push('Legs ' + legs.length + '/' + r.minLegs);
+  // v8.2 TALLY_BY_DIRECTION: the rules count changes of direction (corners that turn), not legs
+  const chg = changesOfDirection();
+  if (r.maxChanges && chg > r.maxChanges) problems.push('Changes of direction ' + chg + ' (TD' + level + ' has exactly ' + r.maxChanges + ')');
+  if (chg < r.minChanges) problems.push('Changes of direction ' + chg + '/' + r.minChanges);
+  legs.slice(0, -1).forEach((l, k) => { if (!l.exitDir || !getTurn(l.exitDir)) problems.push('Leg ' + (k + 1) + ' corner goes straight on: choose a turn'); }); // CORNER_MUST_TURN
   if (dist < r.lengthM) problems.push('Distance ' + dist + '/' + r.lengthM + 'm');
   if (articlesPlaced < r.articles) problems.push('Articles ' + articlesPlaced + '/' + r.articles);
   if (r.acutes > 0 && acutes < r.acutes) problems.push('Acutes ' + acutes + '/' + r.acutes);
-  if (r.allowCross && crossTracksPlaced !== r.crossCount) problems.push('Cross tracks ' + crossTracksPlaced + '/' + r.crossCount);
+  if (r.allowCross && crossTracksPlaced !== r.crossCount) problems.push('Cross-tracks ' + crossTracksPlaced + '/' + r.crossCount);
   if (r.allowDiversion && !legs.some(l => l.diversion)) problems.push('Diversion not set');
   if (r.firstCornerMinM && legs[0] && (legs.length > 1 || (legs[0].flags || []).some(f => f.direction))) {
     const n = legLength(legs[0]);
@@ -643,7 +660,7 @@ function rulesProblems() {
       const idx = c.afterFlag;
       if (idx == null || !leg.flags[idx]) return;
       const d = minDistToTurnM(leg, idx, false, { treatCurrentEndAsTurn: li < legs.length - 1 });
-      if (d < RULES.cross.minFromTurnM) problems.push('Cross too close to a turn (' + d + 'm, min ' + RULES.cross.minFromTurnM + 'm)');
+      if (d < RULES.cross.minFromTurnM) problems.push('Cross-track too close to a turn (' + d + 'm, min ' + RULES.cross.minFromTurnM + 'm)');
     });
   });
   return problems;
@@ -668,7 +685,7 @@ function undo() {
 function newLeg() {
   const rules = R(level);
   if (rules.maxLegs && legs.length >= rules.maxLegs) {
-    return alert('TD' + level + ' has exactly ' + rules.maxLegs + ' legs (' + rules.maxChanges + ' changes of direction)');
+    return alert('TD' + level + ' has exactly ' + plural(rules.maxLegs, 'leg') + ' (' + plural(rules.maxChanges, 'change of direction', 'changes of direction') + ')');
   }
   if (legs.length === 1 && currentLeg && rules.firstCornerMinM) {
     const n = legLength(currentLeg);
@@ -686,6 +703,7 @@ function newLeg() {
       }
     }
     if (!exitDir) exitDir = currentLeg.exitDir;
+    if (!exitDir || !getTurn(exitDir)) { history.pop(); alert('A corner must change direction: choose 90°, obtuse or acute for the last flag first (no straight-on turn).'); return; } // v8.2 CORNER_MUST_TURN
     currentLeg.exitDir = exitDir;
   }
   const isGate = R(level).startType === 'gate';
@@ -871,12 +889,12 @@ function crossPosTxt(c, leg) { const f = leg && leg.flags[c.afterFlag]; const n 
 function placeCross(flagIndex, desc, atFlag) {
   if (!allowCross(level)) return;
   const need = R(level).crossCount;
-  if (crossTracksPlaced >= need) return alert('This test has ' + need + ' cross tracks on the whole track');
+  if (crossTracksPlaced >= need) return alert('This test has ' + plural(need, 'cross-track') + ' on the whole track');
   const tf = currentLeg.flags[flagIndex];
   if (!tf || tf.isStart) return; // CT_COUNT_FIX: no cross-track before the start flag
-  if (currentLeg.crossTracks.some(c => c.afterFlag === flagIndex)) return alert('There is already a cross track before this flag');
+  { const ex = currentLeg.crossTracks.find(c => c.afterFlag === flagIndex); if (ex) return alert('There is already a cross-track ' + (ex.atFlag ? 'at' : 'before') + ' this flag'); };
   const d = minDistToTurnM(currentLeg, flagIndex, !!atFlag);
-  if (d < RULES.cross.minFromTurnM) return alert('A cross track must be at least ' + RULES.cross.minFromTurnM + 'm from a turn (this spot is ' + d + 'm)');
+  if (d < RULES.cross.minFromTurnM) return alert('A cross-track must be at least ' + RULES.cross.minFromTurnM + 'm from a turn (this spot is ' + d + 'm)');
   saveState();
   const flagId = currentLeg.flags[flagIndex] ? currentLeg.flags[flagIndex].id : flagIndex;
   const ctNew = { afterFlag: flagIndex, flagId: flagId, desc, gps: null }; if (atFlag) ctNew.atFlag = true;
@@ -921,8 +939,12 @@ function render() {
       ? `Flag ${sf.isStart ? 0 : sf.id} selected: −50m deletes it, +50m adds after it`
       : 'Tap a flag to open its edit screen (otherwise ±50m works on the last flag)';
     const artBtns = (sf && sf.article && !sf.isStart) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-del" style="padding:6px 10px;margin:2px;background:#f44336;color:#fff;">✕ Delete article ${sf.article.label || ''} on F${sf.id}</button></div>` : (sf && !sf.article) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-before" style="padding:6px 10px;margin:2px;">+ Art before F${sf.isStart ? 0 : sf.id}</button><button type="button" id="chip-art-at" style="padding:6px 10px;margin:2px;">+ Art at F${sf.isStart ? 0 : sf.id}</button></div>` : '';
-    ban.innerHTML = '<div>' + (li > 0 ? '‹ ' : '') + 'LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '') + (li < legs.length - 1 ? ' ›' : '') + '</div>'
+    const navB = (id, t, on) => `<button type="button" id="${id}" class="leg-nav" ${on ? '' : 'disabled'} style="min-width:44px;min-height:36px;margin:0 6px;font-size:20px;font-weight:bold;border-radius:8px;border:2px solid #666;background:#222;color:#fff;${on ? '' : 'opacity:.3;'}">${t}</button>`; // DESKTOP_LEG_ARROWS
+    ban.innerHTML = '<div>' + navB('leg-prev-btn', '‹', li > 0) + 'LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '') + navB('leg-next-btn', '›', li < legs.length - 1) + '</div>'
       + `<div style="font-size:13px;font-weight:normal;margin:2px 0;">${hint}</div><div id="chip-row" style="overflow-x:auto;white-space:nowrap;">${chips}</div>${artBtns}`;
+    const lp = ban.querySelector('#leg-prev-btn'), ln = ban.querySelector('#leg-next-btn');
+    if (lp) lp.onclick = e => { e.stopPropagation(); gotoLeg(-1); };
+    if (ln) ln.onclick = e => { e.stopPropagation(); gotoLeg(1); };
     ban.querySelectorAll('.flag-chip').forEach(b => b.onclick = () => { // v8.0: a chip opens the full-screen flag editor
       feOpen(legs.indexOf(currentLeg), +b.dataset.i);
     });
@@ -1017,16 +1039,16 @@ function render() {
       e.preventDefault();
       e.stopPropagation();
       const i = +btn.dataset.i;
-      if (crossTracksPlaced >= R(level).crossCount) return alert('This test has ' + R(level).crossCount + ' cross tracks on the whole track');
-      openDesc('Cross track before this flag', desc => placeCross(i, desc, false));
+      if (crossTracksPlaced >= R(level).crossCount) return alert('This test has ' + plural(R(level).crossCount, 'cross-track') + ' on the whole track');
+      openDesc('Cross-track before this flag', desc => placeCross(i, desc, false));
     });
   });
   legView.querySelectorAll('.add-cross-at').forEach(btn => { // v8.1 CT_AT_FLAG
     btn.addEventListener('click', e => {
       e.preventDefault(); e.stopPropagation();
       const i = +btn.dataset.i;
-      if (crossTracksPlaced >= R(level).crossCount) return alert('This test has ' + R(level).crossCount + ' cross tracks on the whole track');
-      openDesc('Cross track at this flag', desc => placeCross(i, desc, true));
+      if (crossTracksPlaced >= R(level).crossCount) return alert('This test has ' + plural(R(level).crossCount, 'cross-track') + ' on the whole track');
+      openDesc('Cross-track at this flag', desc => placeCross(i, desc, true));
     });
   });
   legView.querySelectorAll('.tog-cross').forEach(btn => {
@@ -1034,7 +1056,7 @@ function render() {
       e.preventDefault(); e.stopPropagation();
       const i = +btn.dataset.i; const c = currentLeg.crossTracks.find(x => x.afterFlag === i); if (!c) return;
       const at = !c.atFlag;
-      if (!crossAllowed(currentLeg, i, at)) return alert('A cross track must be at least ' + RULES.cross.minFromTurnM + 'm from a turn');
+      if (!crossAllowed(currentLeg, i, at)) return alert('A cross-track must be at least ' + RULES.cross.minFromTurnM + 'm from a turn');
       saveState(); if (at) c.atFlag = true; else delete c.atFlag; render(); drawMud();
     });
   });
@@ -1078,7 +1100,7 @@ function render() {
     el.addEventListener('click', e => {
       if (e.target.closest('button')) return;
       const i = +el.dataset.i; const c = currentLeg.crossTracks.find(x => x.afterFlag === i); if (!c) return;
-      openDesc('Edit cross track (' + crossPosTxt(c, currentLeg) + ')', d => { saveState(); c.desc = d; render(); }, c.desc || '');
+      openDesc('Edit cross-track (' + crossPosTxt(c, currentLeg) + ')', d => { saveState(); c.desc = d; render(); }, c.desc || '');
     });
   });
   legView.querySelectorAll('.bearing').forEach(inp => {
@@ -1116,9 +1138,9 @@ function render() {
   const distNeed = rules.lengthM;
   const distNow = totalDist();
   const distLeft = Math.max(0, distNeed - distNow);
-  const legsLabel = rules.maxLegs ? (legs.length + '/' + rules.maxLegs) : (legs.length + '/' + minL);
+  const chgNow = changesOfDirection(), legsLabel = chgNow + '/' + (rules.maxChanges || rules.minChanges); // TALLY_BY_DIRECTION
   const person = rules.person.charAt(0).toUpperCase() + rules.person.slice(1);
-  let cheat = `TD${level} ${person} | Legs ${legsLabel} | Dist ${distNow}/${distNeed}m (${distLeft} left)<br>`;
+  let cheat = `TD${level} ${person} | Changes of direction ${legsLabel} (${plural(legs.length, 'leg')}) | Dist ${distNow}/${distNeed}m (${distLeft} left)<br>`;
   cheat += `Art ${articlesPlaced}/${artNeed} (${artLeft} left)`;
   if (rules.articlesIndicate) cheat += `, indicate ${rules.articlesIndicate}+`;
   if (acuteNeed > 0) cheat += ` | Acute ${acutesPlaced}/${acuteNeed} (${acuteLeft} left)`;
@@ -1167,6 +1189,7 @@ function drawMud() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, w, h);
+  window.lastMudCT = [];
   if (!legs || !legs.length) return;
   const f0 = legs[0].flags && legs[0].flags[0];
   const pts = [{ x: w / 2, y: h - 20, article: f0 && f0.isStart ? f0.article : null, atFlag: true }];
@@ -1177,7 +1200,7 @@ function drawMud() {
       const prevX = x, prevY = y;
       x += Math.cos(heading) * 24;
       y += Math.sin(heading) * 24;
-      pts.push({ x, y, prevX, prevY, article: f.article, atFlag: f.article && f.article.atFlag, cross: (leg.crossTracks || []).find(ct => ct.flagId === f.id || ct.afterFlag === i) });
+      pts.push({ x, y, prevX, prevY, article: f.article, atFlag: f.article && f.article.atFlag, cross: (leg.crossTracks || []).find(ct => ct.afterFlag === i) }); // v8.1.1 MUD_CT_AT_FLAG: same rule as the full map
     });
     if (li < legs.length - 1 && leg.exitDir) heading += getTurn(leg.exitDir);
   });
@@ -1193,6 +1216,19 @@ function drawMud() {
   ctx.beginPath();
   sp.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
   ctx.stroke();
+  // v8.2 MUDMAP_CT_AT_FLAG_FIX: cross-tracks drawn in their own pass from the current data (at flag = on the flag,
+  // before = mid-segment) BEFORE the flag dots, so they sit behind icons; CT_FOUR_CIRCLES: 4 open circles, half a dot
+  sp.forEach(p => {
+    if (!p.cross || p.prevX == null) return;
+    const atC = !!p.cross.atFlag;
+    const mx = atC ? p.x : (p.prevX + p.x) / 2, my = atC ? p.y : (p.prevY + p.y) / 2;
+    window.lastMudCT.push({x: mx, y: my, at: atC});
+    const ang = Math.atan2(p.y - p.prevY, p.x - p.prevX) + Math.PI / 2, ex = Math.cos(ang) * 16, ey = Math.sin(ang) * 16;
+    ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(mx + ex, my + ey); ctx.lineTo(mx - ex, my - ey); ctx.stroke();
+    ctx.lineWidth = 1.5; ctx.fillStyle = '#111';
+    [0, 0.25, 0.75, 1].forEach(t => { ctx.beginPath(); ctx.arc(mx + ex - 2 * ex * t, my + ey - 2 * ey * t, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+  });
   sp.forEach(p => {
     ctx.fillStyle = '#ffeb3b';
     ctx.beginPath();
@@ -1203,16 +1239,6 @@ function drawMud() {
       const my = p.atFlag || p.prevY == null ? p.y : (p.prevY + p.y) / 2;
       ctx.fillStyle = '#ff5252';
       ctx.fillRect(mx - 4, my - 4, 8, 8);
-    }
-    if (p.cross && p.prevX != null) {
-      const mx = (p.prevX + p.x) / 2, my = (p.prevY + p.y) / 2;
-      const ang = Math.atan2(p.y - p.prevY, p.x - p.prevX) + Math.PI / 2;
-      ctx.strokeStyle = '#00e5ff';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(mx + Math.cos(ang) * 16, my + Math.sin(ang) * 16);
-      ctx.lineTo(mx - Math.cos(ang) * 16, my - Math.sin(ang) * 16);
-      ctx.stroke();
     }
   });
 }
@@ -1362,6 +1388,10 @@ function drawFullMap(pw, ph) {
     fctx.moveTo(mx + Math.cos(ang)*CTH, my + Math.sin(ang)*CTH);
     fctx.lineTo(mx - Math.cos(ang)*CTH, my - Math.sin(ang)*CTH);
     fctx.stroke();
+    { // v8.2 CT_FOUR_CIRCLES: open circles (half the flag-dot diameter) at both ends, 1/4 and 3/4; drawn here, behind icons
+      const ex = Math.cos(ang)*CTH, ey = Math.sin(ang)*CTH; fctx.lineWidth = 1.5 / mapScale; fctx.fillStyle = '#000';
+      [0, 0.25, 0.75, 1].forEach(t => { fctx.beginPath(); fctx.arc(mx + ex - 2*ex*t, my + ey - 2*ey*t, 3.5 / mapScale, 0, Math.PI*2); fctx.fill(); fctx.stroke(); }); // ct-circle
+    }
     const n = Math.ceil(2 * CTH / (8/mapScale));
     for (let t = 0; t <= n; t++) { const sx = mx + Math.cos(ang)*CTH*(1 - 2*t/n), sy = my + Math.sin(ang)*CTH*(1 - 2*t/n);
       labelBoxes.push({x: sx - 3/mapScale, y: sy - 3/mapScale, w: 6/mapScale, h: 6/mapScale}); }
@@ -1450,14 +1480,16 @@ function drawFullMap(pw, ph) {
       // tip touching the flag dot / article ring edge. No incoming segment (track start): after the flag.
       const nx = points[idx+1], pv = idx > 0 ? points[idx-1] : null;
       // v7.8: 32 x 11 px on screen; v7.9: PDF arrow scales with the PDF map scale (smaller when a short track is zoomed in), 20-32 px
-      const AL = printMode ? Math.max(20, Math.min(32, 60 / ((fmScale || 1) * mapScale))) / mapScale : 32 / mapScale, AW = AL * 11 / 64; // pdf-arrow-scale
+      const AMIN = (printMode ? (window.pdfArrowMinPx || 13) : 12) / mapScale; // v8.2b ARROW_MIN_SIZE: >= ~4 mm printed on the PDF, >= 12 px on screen
+      const AL = Math.max(AMIN, 10 * (fmScale || 1)), // v8.2 ARROW_10M: arrowhead = 10 m of track (1/5 of a 50 m flag gap), scales with zoom on map and PDF
+        AW = AL / 8; // pdf-arrow-scale; v8.2c ARROW_4_TO_1: full width = AL/4
       const RB = (ringR ? ringR + 1.25 / mapScale : 7 / mapScale);
       let ux, uy, bx0, by0, tx0, ty0;
       // v8.1 AIM_ARROW_BEFORE (replaces the v8.0.2 flip rule): the arrow ALWAYS sits just before its flag on the
       // incoming segment, tip touching the flag dot / ring. If space is tight it shrinks to fit clear of the previous
       // flag's dot or article ring (e.g. A0); if even the smallest arrow cannot fit it moves beside the line.
       const ringAt = q => { const r = q && artRings.find(z => z.p === q && z.atFlag); return r ? r.r + 1.25 / mapScale : 7 / mapScale; };
-      const GAP = 3 / mapScale, MINAL = 10 / mapScale;
+      const GAP = 3 / mapScale, MINAL = Math.min(AL, AMIN); // ARROW_MIN_SIZE: never shrink below the minimum
       let AL2 = AL, side = 0;
       const into = !!(pv && (pv.x !== p.x || pv.y !== p.y));
       if (into) {
@@ -1465,11 +1497,11 @@ function drawFullMap(pw, ph) {
         AL2 = Math.max(MINAL, Math.min(AL, room));
         if (room < MINAL) side = 1; // no room on the line: sit beside it, still before the flag
       }
-      const AWf = AL2 * 11 / 64;
+      const AWf = AL2 / 8; // ARROW_4_TO_1: length:width = 4:1 (half-width AL/8), filled
       if (into) {
         const a0 = Math.atan2(p.y - pv.y, p.x - pv.x); ux = Math.cos(a0); uy = Math.sin(a0);
         tx0 = p.x - ux*RB; ty0 = p.y - uy*RB; bx0 = tx0 - ux*AL2; by0 = ty0 - uy*AL2;
-        if (side) { const sh = ringAt(pv) + (AL2 * 11 / 64) + 2 / mapScale; tx0 -= uy*sh; bx0 -= uy*sh; ty0 += ux*sh; by0 += ux*sh; }
+        if (side) { const sh = ringAt(pv) + AWf + 2 / mapScale; tx0 -= uy*sh; bx0 -= uy*sh; ty0 += ux*sh; by0 += ux*sh; }
       } else {
         const a0 = nx ? Math.atan2(nx.y - p.y, nx.x - p.x) : (pv ? Math.atan2(p.y - pv.y, p.x - pv.x) : -Math.PI/2); ux = Math.cos(a0); uy = Math.sin(a0);
         bx0 = p.x + ux*RB; by0 = p.y + uy*RB; tx0 = bx0 + ux*AL2; ty0 = by0 + uy*AL2;
@@ -2040,11 +2072,14 @@ function bindButtons() {
 function makeTrackPdf(info) {
   // pick portrait or landscape A4, whichever shows the track bigger
   const sv0 = [mapScale, mapTx, mapTy]; mapScale = 1; mapTx = 0; mapTy = 0;
+  window.lastTrackExtent = null; // v8.2c: never reuse a previous track's extent
   drawFullMap(700, 700); [mapScale, mapTx, mapTy] = sv0;
   const ext = window.lastTrackExtent || [1, 1];
   // v8.1 PDF_FIT_LANDSCAPE: landscape whenever the track is wider than it is tall (the old rule compared fits after the
   // header/legend and needed 5% more, so wide-ish tracks such as a TD5 heading right/up-right still came out portrait)
-  const land = ext[0] > ext[1];
+  // v8.2c PDF_ORIENT_BY_ASPECT: from the track's bounding box; landscape unless the track is clearly (>15%) taller than wide
+  const land = !(ext[1] > ext[0] * 1.15);
+  window.lastPdfOrient = {land, w: ext[0], h: ext[1]};
   const PW = land ? 1754 : 1240, PH = land ? 1240 : 1754; // A4 @150dpi
   const pc = document.createElement('canvas'); pc.width = PW; pc.height = PH;
   const g = pc.getContext('2d');
@@ -2055,7 +2090,8 @@ function makeTrackPdf(info) {
   g.fillText('Tracking Test – TD' + level, M, 62);
   const distNow = totalDist();
   g.font = '24px sans-serif'; g.textAlign = 'right';
-  g.fillText(legs.length + ' legs · ' + distNow + ' m · ' + articlesPlaced + ' articles', PW - M, 62);
+  const artLive = legs.reduce((n, l) => n + (l.flags || []).filter(f => f.article && !f.isStart).length, 0); // v8.2b PDF_ARTICLE_COUNT_LIVE
+  g.fillText(plural(legs.length, 'leg') + ' · ' + distNow + ' m · ' + plural(artLive, 'article'), PW - M, 62);
   g.textAlign = 'center'; g.font = 'bold 24px sans-serif';
   g.fillText('Date: ' + (info.date || '____________'), PW / 2, 62);
   g.textAlign = 'left';
@@ -2089,6 +2125,7 @@ function makeTrackPdf(info) {
   // v8.1 PDF_FIT_LANDSCAPE: draw at a finer resolution (text ~1.8x on paper instead of ~2.4x) and fit the whole drawing,
   // labels included, into the map box: grow the track to use the space, shrink it if any label would run off the page
   const MW = Math.round(IW / 1.8), MH = Math.round(MW * IH / IW), PAD = 6;
+  window.pdfArrowMinPx = 4 / 25.4 * 150 * MW / IW; // ARROW_MIN_SIZE: 4 mm at 150 dpi, in map px before the map is scaled onto the page
   const measure = () => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     labelBoxes.forEach(b => { x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); });
     return {x0, y0, x1, y1, X0: x0 * mapScale + mapTx, Y0: y0 * mapScale + mapTy, X1: x1 * mapScale + mapTx, Y1: y1 * mapScale + mapTy}; };
@@ -2158,14 +2195,32 @@ document.getElementById('pdf-make').onclick = async () => {
   document.getElementById('pdf-modal').classList.remove('show');
   const blob = makeTrackPdf(info);
   const name = 'Tracking-TD' + level + (info.dog ? '-' + info.dog.replace(/[^\w-]+/g, '_') : '') + (dv ? '-' + dv : '') + '.pdf';
-  const file = new File([blob], name, { type: 'application/pdf' });
-  try {
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; }
-  } catch (e) { if (e && e.name === 'AbortError') return; }
+  // v8.2 PDF_VIEW_SEND: offer View or Send once the PDF is made
+  window.lastPdf = {blob, name};
+  document.getElementById('pdfready-name').textContent = name;
+  document.getElementById('pdfready-modal').classList.add('show');
+};
+function pdfDownload(blob, name) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+document.getElementById('pdfready-view').onclick = () => {
+  const L = window.lastPdf; if (!L) return;
+  const url = URL.createObjectURL(L.blob); window.lastPdfViewUrl = url;
+  const w = window.open(url, '_blank');
+  if (!w) { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); }
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
 };
+document.getElementById('pdfready-send').onclick = async () => {
+  const L = window.lastPdf; if (!L) return;
+  const file = new File([L.blob], L.name, { type: 'application/pdf' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: L.name }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  pdfDownload(L.blob, L.name);
+};
+document.getElementById('pdfready-close').onclick = () => document.getElementById('pdfready-modal').classList.remove('show');
 
 bindButtons();
 document.getElementById('undo').onclick = undo;
@@ -2298,7 +2353,7 @@ function openLoad() {
   else list.innerHTML = saved.map((t, i) => ({t, i})).reverse().map(({t, i}) => {
     const d = new Date(t.t), fl = (t.legs || []).reduce((n, l) => n + Math.max(0, (l.flags || []).length - (l.flags && l.flags[0] && l.flags[0].isStart ? 1 : 0)), 0);
     const when = d.toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'}) + ' ' + d.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
-    return `<div style="display:flex;gap:6px;margin:4px 0;"><button type="button" class="load-item" data-i="${i}" style="flex:1;text-align:left;padding:10px;${levelLocked(t.level) ? 'opacity:.55;' : ''}">${levelLocked(t.level) ? '🔒 ' : ''}TD${t.level}${levelLocked(t.level) ? ' (view only)' : ''} · ${(t.legs || []).length} legs · ${fl * FLAG_M}m<br><small>${when}${t.trackDone ? ' · finished' : ''}</small></button><button type="button" class="load-exp" data-i="${i}" style="padding:10px;">📤</button><button type="button" class="load-del" data-i="${i}" style="background:#f44336;color:#fff;padding:10px;">🗑</button></div>`;
+    return `<div style="display:flex;gap:6px;margin:4px 0;"><button type="button" class="load-item" data-i="${i}" style="flex:1;text-align:left;padding:10px;${levelLocked(t.level) ? 'opacity:.55;' : ''}">${levelLocked(t.level) ? '🔒 ' : ''}TD${t.level}${levelLocked(t.level) ? ' (view only)' : ''} · ${plural((t.legs || []).length, 'leg')} · ${fl * FLAG_M}m<br><small>${when}${t.trackDone ? ' · finished' : ''}</small></button><button type="button" class="load-exp" data-i="${i}" style="padding:10px;">📤</button><button type="button" class="load-del" data-i="${i}" style="background:#f44336;color:#fff;padding:10px;">🗑</button></div>`;
   }).join('');
   list.querySelectorAll('.load-item').forEach(b => b.onclick = () => loadSaved(+b.dataset.i));
   list.querySelectorAll('.load-exp').forEach(b => b.onclick = () => {
@@ -2351,7 +2406,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.1';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.2c';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
@@ -2496,7 +2551,7 @@ function textToTrack(txt) {
 TF_NAMES.file = {format: 'format', appVersion: 'app', exported: 'exported'};
 
 // v7.7: Export writes ONE plain-English .track text file (format 2)
-async function exportTrack(t) {
+async function exportTrack(t) { // SEND_TRACK: iOS share sheet with the .track file, download fallback
   const d = new Date(t.t || Date.now()), pad = n => String(n).padStart(2, '0');
   const name = `TD${t.level}-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.track`;
   const body = trackToText(t, APP_VERSION);
@@ -2800,15 +2855,15 @@ function feAct(act, btn) {
     case 'dict-art': { const a = f.article; if (!a) return; const pre = a.label + ': '; const cur = a.desc.startsWith(pre) ? a.desc.slice(pre.length) : a.desc;
       return openDesc('Edit article ' + a.label, d => { saveState(); a.desc = pre + d; render(); drawMud(); }, cur); }
     case 'delcross': { const tag = feCtTag(li, fi); return feDel('Cross-track ' + tag, () => { leg.crossTracks = leg.crossTracks.filter(x => x.afterFlag !== fi); crossTracksPlaced = legs.reduce((n, l) => n + (l.crossTracks || []).length, 0); }); }
-    case 'addcross': return openDesc('Cross track before this flag', d => placeCross(fi, d, false));
-    case 'addcross-at': return openDesc('Cross track at this flag', d => placeCross(fi, d, true));
+    case 'addcross': return openDesc('Cross-track before this flag', d => placeCross(fi, d, false));
+    case 'addcross-at': return openDesc('Cross-track at this flag', d => placeCross(fi, d, true));
     case 'ct-at': case 'ct-before': {
       const x = leg.crossTracks.find(y => y.afterFlag === fi); const at = act === 'ct-at';
       if (!x || !!x.atFlag === at) return;
-      if (!crossAllowed(leg, fi, at)) return alert('A cross track must be at least ' + RULES.cross.minFromTurnM + 'm from a turn');
+      if (!crossAllowed(leg, fi, at)) return alert('A cross-track must be at least ' + RULES.cross.minFromTurnM + 'm from a turn');
       saveState(); if (at) x.atFlag = true; else delete x.atFlag; render(); drawMud(); return;
     }
-    case 'dict-cross': { const x = leg.crossTracks.find(y => y.afterFlag === fi); if (!x) return; return openDesc('Edit cross track (' + crossPosTxt(x, leg) + ')', d => { saveState(); x.desc = d; render(); }, x.desc || ''); }
+    case 'dict-cross': { const x = leg.crossTracks.find(y => y.afterFlag === fi); if (!x) return; return openDesc('Edit cross-track (' + crossPosTxt(x, leg) + ')', d => { saveState(); x.desc = d; render(); }, x.desc || ''); }
     case 'exit': {
       const d = btn.dataset.dir;
       if (isAcuteDir(d) && !allowAcute(level)) return alert('Acute turns are not used on TD' + level);
