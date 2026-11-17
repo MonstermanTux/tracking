@@ -82,39 +82,50 @@ button:active { transform: scale(0.95); }
 .modal-content { background: #222; padding: 16px; border-radius: 12px; width: 90%;
   max-width: 400px; border: 3px solid var(--accent); }
 /* v8.0 FLAG_EDIT_SCREEN */
-#flag-edit { position: fixed; inset: 0; z-index: 90; background: var(--bg, #1a1a1a); display: none; flex-direction: column; }
+/* v8.4 EDIT_SCREEN_V84_B */
+#flag-edit { position: fixed; inset: 0; z-index: 90; background: #121214; color: #ececf0; display: none; flex-direction: column; font-size: 15px; line-height: 1.35; }
 #flag-edit.show { display: flex; }
-#fe-banner { text-align: center; font-weight: bold; font-size: 19px; padding: 6px; border-radius: 0 0 8px 8px; }
-#fe-banner .hint { font-size: 13px; font-weight: normal; margin: 2px 0; }
-#fe-chips { overflow-x: auto; white-space: nowrap; }
-#fe-chips button { min-width: 40px; padding: 4px 7px; margin: 2px; border-radius: 6px; border: 2px solid #666; background: #222; color: #fff; font-weight: bold; font-size: 14px; }
-#fe-chips button.sel { border-color: #f44336; background: #f44336; }
-#fe-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 70px; }
-#flag-edit .fe-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 4px; }
-#flag-edit .fe-head h2 { margin: 0; color: var(--accent); font-size: 24px; }
-#flag-edit .fe-head small { color: #bbb; font-weight: normal; font-size: 14px; }
-#flag-edit .card { margin: 8px 10px; padding: 10px; background: #222; border: 3px solid var(--accent); border-radius: 12px; }
-#flag-edit .card h3 { margin: 0 0 6px; font-size: 16px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-#flag-edit .tag { font-size: 12px; padding: 2px 6px; border-radius: 6px; background: #000; border: 1px solid #888; color: #ddd; font-weight: normal; }
-#flag-edit .card.dir { border-color: #42a5f5; } #flag-edit .card.loc { border-color: #4caf50; } #flag-edit .card.cross { border-color: #00e5ff; } #flag-edit .card.flagc { border-color: #fff; }
-#flag-edit .field { font-family: inherit; width: 100%; box-sizing: border-box; font-size: 17px; padding: 8px; border-radius: 8px; color: #fff; min-height: 44px; }
-#flag-edit .field.dir { background: #0d2b4d; border: 3px solid #42a5f5; }
-#flag-edit .field.loc { background: #10391a; border: 3px solid #4caf50; }
-#flag-edit .field.cross { background: #06323a; border: 3px solid #00e5ff; }
-#flag-edit .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
-#flag-edit button { min-height: 44px; }
-#flag-edit .del { background: #f44336; border-color: #f44336; color: #fff; }
-#flag-edit .fdirs button { background: #42a5f5; color: #000; border-color: #42a5f5; }
-#flag-edit .fdirs button.on { background: #fff; border-color: #fff; }
-#flag-edit .seg button.on { background: #4caf50; color: #000; border-color: #4caf50; }
-#flag-edit .muted { color: #aaa; font-size: 13px; }
-#flag-edit .add { background: #111; border: 2px dashed #888; color: #ddd; }
-#flag-edit .adds { margin: 8px 10px; display: flex; gap: 6px; flex-wrap: wrap; }
-#fe-foot { display: flex; justify-content: space-between; gap: 6px; padding: 8px 10px; background: #222; border-top: 2px solid var(--accent); }
-#fe-foot button { flex: 1; }
-#fe-undo { position: absolute; left: 10px; right: 10px; bottom: 70px; background: #333; color: #fff; border: 2px solid #ffeb3b; border-radius: 10px; padding: 8px 10px; display: none; align-items: center; justify-content: space-between; gap: 8px; z-index: 2; }
+#flag-edit button { font-family: inherit; min-height: 36px; border-radius: 10px; border: 1px solid #34353b; background: #1e1f23; color: #ececf0; font-size: 14px; font-weight: 600; padding: 0 10px; margin: 0; }
+#flag-edit button:disabled { opacity: .38; }
+#flag-edit button.on { background: #ff9f1a; border-color: #ff9f1a; color: #111; }
+#flag-edit button.red { color: #ff5a52; border-color: #5a2a28; }
+#fe-banner { padding: 6px 10px 0; }
+.fe-top { display: flex; align-items: center; gap: 8px; }
+.fe-top h1 { flex: 1; margin: 0; text-align: center; font-size: 17px; font-weight: 650; }
+.fe-top h1 small { display: block; font-size: 12px; color: #9a9ba3; font-weight: 500; }
+.fe-edtag { font-size: 11px; color: #ff9f1a; letter-spacing: .04em; vertical-align: middle; }
+#flag-edit .fe-ib { min-width: 40px; min-height: 40px; border-radius: 20px; font-size: 20px; }
+#fe-chips { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0; }
+#fe-chips button { position: relative; min-width: 44px; flex: none; font-size: 15px; }
+#fe-chips button.sel { border-color: #ff9f1a; color: #ff9f1a; box-shadow: inset 0 0 0 1px #ff9f1a; background: #1e1f23; }
+#fe-chips .fe-dot { position: absolute; top: 4px; right: 5px; width: 6px; height: 6px; }
+#fe-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 10px 8px; }
+.fe-card { background: #1e1f23; border: 1px solid #34353b; border-radius: 14px; padding: 9px 12px; margin-bottom: 8px; cursor: pointer; }
+.fe-card.sel { border-color: #ff9f1a; }
+.fe-ch { display: flex; align-items: baseline; gap: 8px; }
+.fe-ch b { font-size: 16px; } .fe-d { color: #9a9ba3; font-size: 12px; } .fe-tag { margin-left: auto; font-size: 11px; color: #ff9f1a; font-weight: 700; letter-spacing: .04em; }
+.fe-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: 15px; word-break: break-word; }
+.fe-card.sel .fe-row[data-fe] { min-height: 36px; margin-top: 2px; }
+.fe-card.sel .fe-row[data-fe]::after { content: '✎'; margin-left: auto; color: #9a9ba3; font-size: 13px; }
+.fe-sub2 { color: #9a9ba3; font-size: 12px; }
+.fe-dot { width: 9px; height: 9px; border-radius: 5px; flex: none; display: inline-block; }
+.fe-dot.dir { background: #4aa3ff; } .fe-dot.loc { background: #4cd47a; } .fe-dot.ct { background: #2fd6e6; }
+#fe-bar { background: #16171a; border-top: 1px solid #34353b; padding: 6px 10px 0; }
+.fe-lbl { font-size: 12px; color: #9a9ba3; padding: 0 2px 6px; } .fe-lbl b { color: #ff9f1a; } .fe-note { color: #ececf0; }
+.fe-panel { display: none; flex-wrap: wrap; gap: 6px; padding-bottom: 8px; } .fe-panel.open { display: flex; }
+.fe-seg { display: flex; gap: 4px; background: #26272c; border-radius: 12px; padding: 3px; }
+.fe-seg button { border: 0 !important; background: transparent !important; } .fe-seg button.on { background: #ff9f1a !important; color: #111 !important; }
+.fe-main { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.fe-main button, .fe-turns .fe-mbtn { min-height: 50px !important; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 18px !important; line-height: 1; }
+.fe-main button small, .fe-turns small { font-size: 12px; font-weight: 600; }
+.fe-turns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.fe-turns button { min-height: 44px !important; }
+#fe-foot { display: flex; gap: 8px; padding: 8px 10px 14px; background: #16171a; }
+#fe-foot button { flex: 1; min-height: 44px; font-size: 15px; }
+#fe-foot #fe-done { background: #ff9f1a; border-color: #ff9f1a; color: #111; }
+#fe-undo { position: absolute; left: 10px; right: 10px; bottom: 190px; background: #26272c; color: #fff; border: 1px solid #ff9f1a; border-radius: 12px; padding: 6px 10px; display: none; align-items: center; justify-content: space-between; gap: 8px; z-index: 2; }
 #fe-undo.show { display: flex; }
-#fe-ro { display: none; margin: 6px 10px 0; padding: 6px 8px; background: #3a2a00; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; }
+#fe-ro { display: none; margin: 0 10px 6px; padding: 6px 8px; background: #3a2a00; border: 1px solid #ff9f1a; border-radius: 10px; font-size: 14px; }
 #fullmap { position: fixed; inset: 0; background: #000; display: none; z-index: 150;
   flex-direction: column; overflow: hidden; touch-action: none; }
 #fullmap.show { display: flex; }
@@ -202,8 +213,9 @@ button:active { transform: scale(0.95); }
   <div id="fe-banner"></div>
   <div id="fe-ro">🔒 View only in the free version. <button type="button" id="fe-ro-unlock" style="min-height:32px;">Unlock</button></div>
   <div id="fe-body"></div>
-  <div id="fe-undo"><span id="fe-undo-txt"></span><button type="button" id="fe-undo-btn" style="background:#ffeb3b;color:#000;">↶ Undo</button></div>
-  <div id="fe-foot"><button type="button" id="fe-prev">‹ Prev flag</button><button type="button" id="fe-done" style="background:#4caf50;color:#000;">✓ Done</button><button type="button" id="fe-next">Next flag ›</button></div>
+  <div id="fe-undo"><span id="fe-undo-txt"></span><button type="button" id="fe-undo-btn" class="on">↶ Undo</button></div>
+  <div id="fe-bar"></div>
+  <div id="fe-foot"><button type="button" id="fe-prev" style="display:none">‹ Prev flag</button><button type="button" id="fe-back" data-fe="done">Back</button><button type="button" id="fe-done">Save</button><button type="button" id="fe-next" style="display:none">Next flag ›</button></div>
 </div>
 <div id="unlock-modal" class="modal" style="z-index:500;">
   <div class="modal-content">
@@ -940,7 +952,8 @@ function render() {
     const hint = sf
       ? `Flag ${sf.isStart ? 0 : sf.id} selected: −50m deletes it, +50m adds after it`
       : 'Tap a flag to open its edit screen (otherwise ±50m works on the last flag)';
-    const artBtns = (sf && sf.article && !sf.isStart) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-del" style="padding:6px 10px;margin:2px;background:#f44336;color:#fff;">✕ Delete article ${sf.article.label || ''} on F${sf.id}</button></div>` : (sf && !sf.article) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-before" style="padding:6px 10px;margin:2px;">+ Art before F${sf.isStart ? 0 : sf.id}</button><button type="button" id="chip-art-at" style="padding:6px 10px;margin:2px;">+ Art at F${sf.isStart ? 0 : sf.id}</button></div>` : '';
+    const artBtns = (sf && sf.article && !sf.isStart) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-del" style="padding:6px 10px;margin:2px;background:#f44336;color:#fff;">✕ Delete article ${sf.article.label || ''} on F${sf.id}</button></div>` : (sf && !sf.article) ? (() => { const sl = currentLeg.flags.indexOf(sf), okB = !sf.isStart && !articleCheck(currentLeg, sl, false), okA = !articleCheck(currentLeg, sl, true); // CORNER_DELETE_SEL_FIX
+      return (okA || okB) ? `<div style="margin-top:4px;">${okB ? `<button type="button" id="chip-art-before" style="padding:6px 10px;margin:2px;">+ Art before F${sf.isStart ? 0 : sf.id}</button>` : ''}${okA ? `<button type="button" id="chip-art-at" style="padding:6px 10px;margin:2px;">+ Art at F${sf.isStart ? 0 : sf.id}</button>` : ''}</div>` : `<div style="margin-top:4px;font-size:13px;font-weight:normal;">${sl === currentLeg.flags.length - 1 && legs.indexOf(currentLeg) < legs.length - 1 ? 'Corner flag – no article' : 'No article at F' + (sf.isStart ? 0 : sf.id) + ' (too close to a turn)'}</div>`; })() : '';
     const navB = (id, t, on) => `<button type="button" id="${id}" class="leg-nav" ${on ? '' : 'disabled'} style="min-width:44px;min-height:36px;margin:0 6px;font-size:20px;font-weight:bold;border-radius:8px;border:2px solid #666;background:#222;color:#fff;${on ? '' : 'opacity:.3;'}">${t}</button>`; // DESKTOP_LEG_ARROWS
     ban.innerHTML = '<div>' + navB('leg-prev-btn', '‹', li > 0) + 'LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '') + navB('leg-next-btn', '›', li < legs.length - 1) + '</div>'
       + `<div style="font-size:13px;font-weight:normal;margin:2px 0;">${hint}</div><div id="chip-row" style="overflow-x:auto;white-space:nowrap;">${chips}</div>${artBtns}`;
@@ -991,7 +1004,9 @@ function render() {
       ${dirButtons}
       ${f.article
         ? `<div class="article-mark edit-art" data-i="${i}">Article: ${f.article.desc} <button type="button" class="del-art" data-i="${i}">✕ delete</button></div>`
-        : `<button type="button" class="add-art-before" data-i="${i}">+ Art before</button> <button type="button" class="add-art-at" data-i="${i}">+ Art at flag</button>`}
+        : (() => { const okB = !f.isStart && !articleCheck(currentLeg, i, false), okA = !articleCheck(currentLeg, i, true); // CORNER_DELETE_SEL_FIX
+            return (okB ? `<button type="button" class="add-art-before" data-i="${i}">+ Art before</button> ` : '') + (okA ? `<button type="button" class="add-art-at" data-i="${i}">+ Art at flag</button>` : '')
+              + (!okA && !okB ? `<div class="muted" style="font-size:13px;color:#aaa;">${isLast && legs.indexOf(currentLeg) < legs.length - 1 ? 'Corner flag – no article' : 'No article here (too close to a turn)'}</div>` : ''); })()}
       <button type="button" class="drop-gps" data-i="${i}">📍 Drop GPS${f.gps ? ' ✓' : ''}</button>
       ${f.gps ? `<div style="font-size:12px;color:#8bc34a;">${f.gps.lat.toFixed(5)}, ${f.gps.lng.toFixed(5)}</div>` : ''}
       ${allowCross(level) ? (ct ? `<div class="cross-stub edit-cross" data-i="${i}">Cross ${ct.atFlag ? 'at flag' : 'before'}: ${ct.desc} <button type="button" class="tog-cross" data-i="${i}">⇄ ${ct.atFlag ? 'Before' : 'At flag'}</button> <button type="button" class="del-cross" data-i="${i}">✕</button></div>` : (crossTracksPlaced < R(level).crossCount ? (crossAllowed(currentLeg, i, false) ? `<button type="button" class="add-cross" data-i="${i}">+ Cross before</button>` : '') + (crossAllowed(currentLeg, i, true) ? ` <button type="button" class="add-cross-at" data-i="${i}">+ Cross at flag</button>` : '') : '')) : ''}
@@ -1170,7 +1185,7 @@ function render() {
   drawMud();
   bindButtons();
   setTimeout(() => {
-    const active = legView.querySelector('.flag.active');
+    const active = legView.querySelector('.flag.selected') || legView.querySelector('.flag.active'); // CORNER_DELETE_SEL_FIX: selected card first
     if (active) active.scrollIntoView({block: 'nearest', behavior: 'smooth'});
   }, 30);
 }
@@ -2412,7 +2427,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.3b';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.4';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
@@ -2646,7 +2661,7 @@ function feCtx() {
   return {li, fi, leg, f: leg.flags[fi]};
 }
 function feOpen(li, fi) {
-  feState = {li, fi};
+  feState = {li, fi}; feUI.p = null;
   if (!feCtx()) { feState = null; return; }
   document.getElementById('flag-edit').classList.add('show');
   document.body.style.overflow = 'hidden';
@@ -2700,6 +2715,11 @@ function feAimInfo(leg, fi) { // is this flag the start of an aim on its leg? wh
 }
 const FE_DIRS = { '90L':'90° L', '90R':'90° R', 'obtL':'Obtuse L', 'obtR':'Obtuse R', 'acL':'Acute L', 'acR':'Acute R' };
 const FE_LBL = { aim: 'aim note', art: 'article ring', cross: 'cross-track tag', dist: 'distance note' };
+// ===== v8.4 EDIT_SCREEN_V84_B: flag edit screen redesign (mockup B) =====
+// Leg view: soft grey text-only cards for every flag of the leg (tap a card to select it), F# chips, leg ‹ › nav,
+// and a fixed action bar for the selected flag (Article, Cross, Turn, ⋯ More) above Back / Save. When the corner
+// (last) flag is selected the bar shows the turn buttons directly. Every action still goes through feAct (same rules).
+var feUI = {p: null}; // open bar panel: 'art' | 'cross' | 'more' | null
 function feRender() {
   try { fixCrossTracks(); } catch (e) {}
   const c = feCtx(); if (!c) { feClose(); return; }
@@ -2707,123 +2727,92 @@ function feRender() {
   const vo = isViewOnly(), dis = vo ? ' disabled' : '';
   const rules = R(level);
   const editing = li < legs.length - 1;
-  const isLast = fi === leg.flags.length - 1;
+  const lastI = leg.flags.length - 1, isLast = fi === lastI;
   const fnum = f.isStart ? 0 : f.id;
-  const flagIdx = leg.flags.filter(x => !x.isStart);
-  const legStartM = leg.flags[0] ? (leg.flags[0].isStart ? 0 : (leg.flags[0].id - 1) * FLAG_M) : 0;
-  const order = feOrder(), k = order.findIndex(x => x[0] === li && x[1] === fi);
-  const nameOf = p => { if (!p) return ''; const g = legs[p[0]].flags[p[1]]; return 'Flag ' + (g.isStart ? 0 : g.id) + (p[0] !== li ? ' (Leg ' + (p[0] + 1) + ')' : ''); };
-  const pv = order[k - 1], nx = order[k + 1];
-  // banner (kept like the leg banner: orange while editing an earlier leg)
+  const dirs = ['90L', '90R', 'obtL', 'obtR']; if (allowAcute(level)) dirs.push('acL', 'acR');
+  const artTxt = a => { const pre = (a.label || '') + ': '; return a.desc && a.desc.startsWith(pre) ? a.desc.slice(pre.length) : (a.desc || ''); };
+  const distOf = (g, i) => g.isStart ? (leg.start && leg.start.type === 'gate' ? 'start gate' : 'start') + ' · 0 m' : (g.id * FLAG_M) + ' m' + (i === lastI ? (li < legs.length - 1 ? ' · corner' : ' · last flag') : '');
+  // top bar + chips
   const ban = document.getElementById('fe-banner');
-  ban.style.background = editing ? '#ff9800' : '#333';
-  ban.style.color = editing ? '#000' : '#ffeb3b';
-  ban.innerHTML = '<div>' + (li > 0 ? '‹ ' : '') + 'LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '') + (li < legs.length - 1 ? ' ›' : '') + '</div>'
-    + '<div class="hint">Swipe ‹ › for ' + (pv ? nameOf(pv) : '–') + ' / ' + (nx ? nameOf(nx) : '–') + ' · tap a chip to jump</div>'
-    + '<div id="fe-chips">' + leg.flags.map((g, i) => `<button type="button" data-fe="jump" data-i="${i}" class="${i === fi ? 'sel' : ''}">F${g.isStart ? 0 : g.id}${g.article ? '•' : ''}</button>`).join('') + '</div>';
+  ban.style.background = ''; ban.style.color = '';
+  ban.innerHTML = `<div class="fe-top"><button type="button" class="fe-ib" data-fe="legprev"${li > 0 ? '' : ' disabled'} aria-label="Previous leg">‹</button>`
+    + `<h1>Leg ${li + 1} of ${legs.length}${editing ? ' <span class="fe-edtag">EDITING</span>' : ''}<small>TD${level} · ${legLength(leg)} m · tap a flag</small></h1>`
+    + `<button type="button" class="fe-ib" data-fe="legnext"${li < legs.length - 1 ? '' : ' disabled'} aria-label="Next leg">›</button></div>`
+    + '<div id="fe-chips">' + leg.flags.map((g, i) => { const ct = (leg.crossTracks || []).find(x => x.afterFlag === i);
+      const dot = g.article ? 'loc' : ct ? 'ct' : (i === lastI && (g.direction || leg.exitDir)) ? 'dir' : '';
+      return `<button type="button" data-fe="jump" data-i="${i}" class="${i === fi ? 'sel' : ''}">F${g.isStart ? 0 : g.id}${dot ? `<i class="fe-dot ${dot}"></i>` : ''}</button>`; }).join('') + '</div>';
   document.getElementById('fe-ro').style.display = vo ? 'block' : 'none';
-  document.getElementById('fe-prev').disabled = !pv;
-  document.getElementById('fe-next').disabled = !nx;
-  const h = [];
-  const sub = f.isStart ? (leg.start && leg.start.type === 'gate' ? 'start gate' : 'start') + ' · 0 m' : (fnum * FLAG_M) + ' m · Leg ' + (li + 1) + (isLast && editing ? ' corner' : isLast ? ' last flag' : '');
-  h.push(`<div class="fe-head"><h2>Flag ${fnum} <small>· ${sub}</small></h2><button type="button" data-fe="done">✕ Close</button></div>`);
-  // 1. the flag itself
-  {
-    const gps = f.gps ? `GPS ${(+f.gps.lat).toFixed(6)}, ${(+f.gps.lng).toFixed(6)}${f.gps.acc ? ' ±' + f.gps.acc + ' m' : ''}` : 'No GPS dropped yet';
-    let body = '';
-    if (f.isStart && leg.start) body += `<textarea class="field loc" rows="2" data-fe-field="start"${dis} placeholder="Start description">${feEsc(leg.start.desc || '')}</textarea>`;
-    body += `<div class="muted" style="margin-top:4px">${feEsc(gps)}</div>`;
-    let btns = '';
-    if (!vo) {
-      btns += `<button type="button" data-fe="gps">📍 ${f.gps ? 'Re-drop GPS' : 'Drop GPS here'}</button>`;
-      if (f.gps) btns += `<button type="button" class="del" data-fe="delgps">🗑 Remove GPS</button>`;
-      btns += `<button type="button" data-fe="insert">➕ Insert flag after (+50 m)</button>`;
-      if (!f.isStart) btns += `<button type="button" class="del" data-fe="delflag">🗑 Delete flag (−50 m)</button>`;
-    }
-    const tag = f.isStart ? 'start of track' : (fnum * FLAG_M) + ' m (' + (fnum * FLAG_M - legStartM) + ' m into Leg ' + (li + 1) + ')';
-    h.push(`<div class="card flagc" data-card="flag"><h3>Flag ${fnum} – ${f.isStart ? 'start' : 'position'} <span class="tag">${tag}</span></h3>${body}${btns ? '<div class="row">' + btns + '</div>' : ''}</div>`);
-  }
-  const adds = [];
-  // 2. aim
-  if (!f.isStart) {
-    const ai = feAimInfo(leg, fi), prevAim = aimPrev(leg, fi);
-    if (ai.isNew) {
-      const deletable = !!prevAim; // the leg's first aim stays; later aims merge back
-      h.push(`<div class="card dir" data-card="aim"><h3>Aim from this flag${ai.n > 1 ? ' (aim ' + ai.n + ' on this leg)' : ''} <span class="tag">arrow before F${fnum}</span></h3>`
-        + `<textarea class="field dir" rows="2" data-fe-field="aim"${dis}>${feEsc(f.bearing || '')}</textarea>`
-        + (deletable ? `<div class="muted">Earlier aim on this leg: “${feEsc(prevAim)}”. Clearing the text or typing the same aim merges them.</div>` : '')
-        + (vo ? '' : `<div class="row"><button type="button" data-fe="dict-aim">🎤 Dictate</button>${deletable ? `<button type="button" class="del" data-fe="delaim">🗑 Delete aim ${ai.n} (back to “${feEsc(prevAim.slice(0, 24))}”)</button>` : ''}</div>`)
-        + '</div>');
-    } else if (f.bearing) {
-      h.push(`<div class="muted" style="margin:4px 14px">Following aim “${feEsc(f.bearing)}”${ai.startFi >= 0 ? ' from Flag ' + leg.flags[ai.startFi].id : ''}.</div>`);
-      if (!vo) adds.push(`<button type="button" class="add" data-fe="addaim">➕ New aim from this flag</button>`);
-    } else if (!vo) adds.push(`<button type="button" class="add" data-fe="addaim">➕ Add aim from this flag</button>`);
-  }
-  // 3. article
-  if (f.article) {
-    const a = f.article, pre = (a.label || '') + ': ';
-    const txt = a.desc && a.desc.startsWith(pre) ? a.desc.slice(pre.length) : (a.desc || '');
-    const canAt = !articleCheck(leg, fi, true), canBefore = !f.isStart && !articleCheck(leg, fi, false);
-    let seg = '';
-    if (!f.isStart) seg = `<div class="row seg"><button type="button" data-fe="art-at" class="${a.atFlag ? 'on' : ''}"${(!a.atFlag && !canAt) || vo ? ' disabled' : ''}>At this flag</button><button type="button" data-fe="art-before" class="${!a.atFlag ? 'on' : ''}"${(a.atFlag && !canBefore) || vo ? ' disabled' : ''}>Before this flag</button></div>`;
-    h.push(`<div class="card loc" data-card="article"><h3>Article ${feEsc(a.label || '')} <span class="tag">${a.atFlag ? 'at F' + fnum : 'before F' + fnum}</span></h3>${seg}`
-      + `<textarea class="field loc" rows="2" style="margin-top:8px" data-fe-field="art"${dis}>${feEsc(txt)}</textarea>`
-      + (vo ? '' : `<div class="row"><button type="button" data-fe="dict-art">🎤 Dictate</button>${f.isStart ? '' : `<button type="button" class="del" data-fe="delart">🗑 Delete article ${feEsc(a.label || '')}</button>`}</div>`)
-      + '</div>');
-  } else if (!vo && !f.isStart && articlesPlaced < (rules.articles || 0)) {
-    if (!articleCheck(leg, fi, true)) adds.push(`<button type="button" class="add" data-fe="addart-at">➕ Article at this flag</button>`);
-    if (!articleCheck(leg, fi, false)) adds.push(`<button type="button" class="add" data-fe="addart-before">➕ Article before this flag</button>`);
-  }
-  // 4. cross-track before this flag
+  // cards (text only); rows of the selected card open the matching edit
+  const cards = leg.flags.map((g, i) => {
+    const sel = i === fi, rows = [], ed = (act, cls, html) => rows.push(`<div class="fe-row"${sel ? ` data-fe="${act}"` : ''}><span class="fe-dot ${cls}"></span><span>${html}</span></div>`);
+    if (g.isStart && leg.start) ed('edit-start', 'loc', 'Start: ' + feEsc(leg.start.desc || '(no description)'));
+    if (!g.isStart) { const ai = feAimInfo(leg, i); if (ai.isNew) ed('dict-aim', 'dir', 'Aim: ' + feEsc(g.bearing)); }
+    if (g.article) ed('dict-art', 'loc', `${feEsc(g.article.label || '')} ${feEsc(artTxt(g.article))} · ${g.article.atFlag ? 'at' : 'before'} F${g.isStart ? 0 : g.id}`);
+    const ct = (leg.crossTracks || []).find(x => x.afterFlag === i);
+    if (ct) ed('dict-cross', 'ct', `${feCtTag(li, i)} ${feEsc(ct.desc || '')} · ${ct.atFlag ? 'at' : 'before'} F${g.id}`);
+    if (i === lastI && !g.isStart && editing) { const d = g.direction || leg.exitDir; ed('edit-corner', 'dir', 'Turn ' + (d ? FE_DIRS[d] || d : '– choose below') + (g.cornerNote ? ' · ' + feEsc(g.cornerNote) : '')); }
+    if (leg.diversion && leg.diversion.atFlag === g.id) ed('edit-div', 'loc', 'Diversion ' + feEsc(leg.diversion.side || leg.diversion.dir || '') + ': ' + feEsc(leg.diversion.desc || leg.diversion.note || ''));
+    if (i === lastI && !editing && (hideDesc || trackDone)) ed('edit-hide', 'loc', 'Hide: ' + feEsc(hideDesc || '(no description)'));
+    if (g.gps) rows.push(`<div class="fe-row fe-sub2">📍 GPS ${(+g.gps.lat).toFixed(5)}, ${(+g.gps.lng).toFixed(5)}</div>`);
+    if (!rows.length) rows.push(`<div class="fe-row fe-sub2">${g.bearing ? 'Following aim “' + feEsc(g.bearing) + '”' : 'No notes'}</div>`);
+    return `<div class="fe-card${sel ? ' sel' : ''}" data-fe="jump" data-i="${i}" data-card="flag-${i}"><div class="fe-ch"><b>F${g.isStart ? 0 : g.id}</b><span class="fe-d">${distOf(g, i)}</span>${sel ? '<span class="fe-tag">SELECTED</span>' : ''}</div>${rows.join('')}</div>`;
+  });
+  document.getElementById('fe-body').innerHTML = cards.join('');
+  // ---- action bar for the selected flag ----
   const ct = (leg.crossTracks || []).find(x => x.afterFlag === fi);
-  if (ct) {
-    const tag = feCtTag(li, fi);
-    const at = !!ct.atFlag, canAtC = crossAllowed(leg, fi, true), canBeC = crossAllowed(leg, fi, false);
-    h.push(`<div class="card cross" data-card="cross"><h3>Cross-track ${tag} ${at ? 'at' : 'before'} this flag <span class="tag">~30 m each side</span></h3>`
-      + `<div class="row seg"><button type="button" data-fe="ct-at" class="${at ? 'on' : ''}"${(!at && !canAtC) || vo ? ' disabled' : ''}>At this flag</button><button type="button" data-fe="ct-before" class="${!at ? 'on' : ''}"${(at && !canBeC) || vo ? ' disabled' : ''}>Before this flag</button></div>`
-      + `<textarea style="margin-top:8px" class="field cross" rows="2" data-fe-field="cross"${dis}>${feEsc(ct.desc || '')}</textarea>`
-      + (vo ? '' : `<div class="row"><button type="button" data-fe="dict-cross">🎤 Dictate</button><button type="button" class="del" data-fe="delcross">🗑 Delete ${tag}</button></div>`)
-      + '</div>');
-  } else if (!vo && !f.isStart && allowCross(level) && crossTracksPlaced < (rules.crossCount || 0)) { // v8.1 CT_AT_FLAG
-    if (crossAllowed(leg, fi, true)) adds.push(`<button type="button" class="add" data-fe="addcross-at">➕ Cross-track at this flag</button>`);
-    if (crossAllowed(leg, fi, false)) adds.push(`<button type="button" class="add" data-fe="addcross">➕ Cross-track before this flag</button>`);
+  const quotaArt = articlesPlaced < (rules.articles || 0), quotaCt = allowCross(level) && crossTracksPlaced < (rules.crossCount || 0);
+  const canAt = !f.isStart && !articleCheck(leg, fi, true), canBefore = !f.isStart && !articleCheck(leg, fi, false);
+  const canCtAt = crossAllowed(leg, fi, true), canCtBe = crossAllowed(leg, fi, false);
+  const btn = (act, label, extra = '') => `<button type="button" data-fe="${act}"${extra}>${label}</button>`;
+  const off = (cond) => (cond || vo) ? ' disabled' : '';
+  // panels
+  let pArt = '', pCt = '', pMore = '';
+  if (f.article) {
+    const a = f.article;
+    if (!f.isStart) pArt += `<div class="fe-seg">${btn('art-at', 'At F' + fnum, ` class="${a.atFlag ? 'on' : ''}"` + off(!a.atFlag && !canAt))}${btn('art-before', 'Before F' + fnum, ` class="${!a.atFlag ? 'on' : ''}"` + off(a.atFlag && !canBefore))}</div>`;
+    pArt += btn('dict-art', '✎ Edit article ' + feEsc(a.label || ''), dis);
+  } else {
+    if (canAt && quotaArt) pArt += btn('addart-at', '＋ Article at F' + fnum, dis);
+    if (canBefore && quotaArt) pArt += btn('addart-before', '＋ Article before F' + fnum, dis);
   }
-  // 5. corner / turn (last flag of a leg)
-  if (isLast && !f.isStart) {
-    const dirs = ['90L', '90R', 'obtL', 'obtR']; if (allowAcute(level)) dirs.push('acL', 'acR');
-    if (editing) {
-      const cur = f.direction || leg.exitDir || '';
-      h.push(`<div class="card dir" data-card="corner"><h3>Corner – exit turn <span class="tag">into Leg ${li + 2}</span></h3>`
-        + `<div class="row fdirs">${dirs.map(d => `<button type="button" data-fe="exit" data-dir="${d}" class="${d === cur ? 'on' : ''}"${dis}>${FE_DIRS[d]}</button>`).join('')}</div>`
-        + `<textarea class="field loc" rows="2" style="margin-top:8px" data-fe-field="corner"${dis} placeholder="Corner note">${feEsc(f.cornerNote || '')}</textarea>`
-        + (!vo && f.cornerNote ? `<div class="row"><button type="button" class="del" data-fe="delcorner">🗑 Clear corner note</button></div>` : '')
-        + '</div>');
-    } else if (!vo && !trackDone && !(rules.maxLegs && legs.length >= rules.maxLegs)) {
-      h.push(`<div class="card dir" data-card="turn"><h3>Turn here <span class="tag">starts Leg ${li + 2}</span></h3>`
-        + `<div class="row fdirs">${dirs.map(d => `<button type="button" data-fe="turn" data-dir="${d}">${FE_DIRS[d]}</button>`).join('')}</div></div>`);
-    }
-  }
-  // 6. diversion at this flag
-  if (leg.diversion && leg.diversion.atFlag === f.id) {
-    h.push(`<div class="card loc" data-card="diversion"><h3>Diversion ${feEsc(leg.diversion.side || leg.diversion.dir || '')} <span class="tag">at F${fnum}</span></h3>`
-      + `<textarea class="field loc" rows="2" data-fe-field="div"${dis}>${feEsc(leg.diversion.desc || leg.diversion.note || '')}</textarea>`
-      + (vo ? '' : `<div class="row"><button type="button" class="del" data-fe="deldiv">🗑 Delete diversion</button></div>`) + '</div>');
-  }
-  // 7. hide / finish note (last flag of the track)
-  if (isLast && !editing && (hideDesc || trackDone)) {
-    h.push(`<div class="card loc" data-card="hide"><h3>Hide / finish <span class="tag">end of track</span></h3>`
-      + `<textarea class="field loc" rows="2" data-fe-field="hide"${dis}>${feEsc(hideDesc || '')}</textarea></div>`);
-  }
-  // 8. moved map labels
+  if (ct) pCt += btn('dict-cross', '✎ Edit ' + feCtTag(li, fi), dis);
+  else if (!f.isStart && quotaCt) { if (canCtAt) pCt += btn('addcross-at', '＋ Cross-track at F' + fnum, dis); if (canCtBe) pCt += btn('addcross', '＋ Cross-track before F' + fnum, dis); }
+  if (!f.isStart) { const ai = feAimInfo(leg, fi), prevAim = aimPrev(leg, fi);
+    pMore += ai.isNew ? btn('dict-aim', '✎ Aim', dis) : btn('addaim', '＋ New aim here', dis);
+    if (ai.isNew && prevAim) pMore += btn('delaim', '🗑 Delete aim ' + ai.n, ' class="red"' + dis); }
+  pMore += btn('gps', '📍 ' + (f.gps ? 'Re-drop GPS' : 'Drop GPS'), dis);
+  if (f.gps) pMore += btn('delgps', '🗑 GPS', ' class="red"' + dis);
+  pMore += btn('insert', '＋ Insert flag after', dis);
+  if (ct) { const at = !!ct.atFlag; pMore += `<div class="fe-seg">${btn('ct-at', feCtTag(li, fi) + ' at F' + fnum, ` class="${at ? 'on' : ''}"` + off(!at && !canCtAt))}${btn('ct-before', 'before F' + fnum, ` class="${!at ? 'on' : ''}"` + off(at && !canCtBe))}</div>`; }
+  if (isLast && !f.isStart && editing) pMore += btn('edit-corner', '✎ Corner note', dis);
+  if (f.cornerNote) pMore += btn('delcorner', '🗑 Corner note', ' class="red"' + dis);
+  if (f.article && !f.isStart) pMore += btn('delart', '🗑 Article ' + feEsc(f.article.label || ''), ' class="red"' + dis);
+  if (ct) pMore += btn('delcross', '🗑 ' + feCtTag(li, fi), ' class="red"' + dis);
+  if (leg.diversion && leg.diversion.atFlag === f.id) pMore += btn('deldiv', '🗑 Diversion', ' class="red"' + dis);
   const offs = f.lblOff && typeof f.lblOff === 'object' ? Object.keys(f.lblOff) : [];
-  if (offs.length) {
-    h.push(`<div class="card" data-card="labels"><h3>Moved map labels <span class="tag">${offs.length}</span></h3>`
-      + (vo ? `<div class="muted">${offs.map(x => FE_LBL[x] || x).join(', ')}</div>` : `<div class="row">${offs.map(x => `<button type="button" class="del" data-fe="dellbl" data-k="${feEsc(x)}">↺ Reset ${feEsc(FE_LBL[x] || x)}</button>`).join('')}</div>`)
-      + '</div>');
+  offs.forEach(x => { pMore += btn('dellbl', '↺ ' + feEsc(FE_LBL[x] || x), ` data-k="${feEsc(x)}"` + dis); });
+  if (!f.isStart) pMore += btn('delflag', '🗑 Delete flag', ' class="red"' + dis);
+  // note shown in the bar when no article can go here (CORNER_DELETE_SEL_FIX)
+  let note = '';
+  if (!f.article && !f.isStart && !canAt && !canBefore) note = isLast && li < legs.length - 1 ? 'corner flag – no article' : 'no article here (too close to a turn)';
+  else if (!f.article && !quotaArt && !f.isStart) note = 'article quota used';
+  // main buttons
+  let main;
+  const cornerTurns = isLast && !f.isStart && (editing || (!vo && !trackDone && !(rules.maxLegs && legs.length >= rules.maxLegs)));
+  if (cornerTurns) {
+    const cur = f.direction || leg.exitDir || '';
+    main = `<div class="fe-turns">${dirs.map(d => btn(editing ? 'exit' : 'turn', FE_DIRS[d].replace('Obtuse', 'Obt'), ` data-dir="${d}" class="${d === cur ? 'on' : ''}"` + dis)).join('')}${btn('panel', '⋯<small>More</small>', ` data-p="more" class="fe-mbtn${feUI.p === 'more' ? ' on' : ''}"`)}</div>`;
+  } else {
+    main = `<div class="fe-main">`
+      + btn('panel', '＋<small>Article</small>', ` data-p="art" class="${feUI.p === 'art' ? 'on' : ''}"` + (pArt ? '' : ' disabled'))
+      + btn('panel', '✕<small>Cross</small>', ` data-p="cross" class="${feUI.p === 'cross' ? 'on' : ''}"` + (pCt ? '' : ' disabled'))
+      + btn('jump', '↱<small>Turn</small>', ` data-i="${lastI}"` + (f.isStart && lastI === fi ? ' disabled' : ''))
+      + btn('panel', '⋯<small>More</small>', ` data-p="more" class="${feUI.p === 'more' ? 'on' : ''}"`) + '</div>';
   }
-  if (adds.length) h.push(`<div class="adds">${adds.join('')}</div>`);
-  if (!vo && !adds.length) h.push(`<div class="muted" style="margin:6px 14px">Nothing else can be added at this flag on TD${level}.</div>`);
-  document.getElementById('fe-body').innerHTML = h.join('');
+  const panel = (k, html) => `<div class="fe-panel${feUI.p === k ? ' open' : ''}" data-panel="${k}">${html}</div>`;
+  document.getElementById('fe-bar').innerHTML = `<div class="fe-lbl">Actions for <b>F${fnum} · ${f.isStart ? '0 m' : fnum * FLAG_M + ' m'}</b>${note ? ` <span class="fe-note">· ${note}</span>` : ''}</div>`
+    + panel('art', pArt) + panel('cross', pCt) + panel('more', pMore) + main;
+  const sc = document.querySelector('#fe-body .fe-card.sel'); if (sc && sc.scrollIntoView) sc.scrollIntoView({block: 'nearest'});
 }
 function feDel(label, fn) { feSnap(); saveState(); fn(); render(); drawMud(); feShowUndo(label + ' deleted'); feRender(); }
 function feAct(act, btn) {
@@ -2831,8 +2820,14 @@ function feAct(act, btn) {
   const {li, fi, leg, f} = c;
   if (act === 'done') return feClose();
   if (act === 'jump') return feOpen(li, +btn.dataset.i);
+  if (act === 'panel') { const p = btn.dataset.p; feUI.p = feUI.p === p ? null : p; feRender(); return; } // EDIT_SCREEN_V84_B
+  if (act === 'legprev' || act === 'legnext') { const nl = li + (act === 'legprev' ? -1 : 1); if (nl >= 0 && nl < legs.length) feOpen(nl, 0); return; }
   if (isViewOnly()) { showUnlock('TD' + level + ' is view only in the free version.'); return; }
   switch (act) {
+    case 'edit-start': if (leg.start) openDesc('Start description', d => { feField('start', d); render(); feRefresh(); }, leg.start.desc || ''); return;
+    case 'edit-corner': return openDesc('Corner note', d => { feField('corner', d); render(); feRefresh(); }, f.cornerNote || '');
+    case 'edit-hide': return openDesc('Hide / finish description', d => { feField('hide', d); render(); feRefresh(); }, hideDesc || '');
+    case 'edit-div': if (leg.diversion) openDesc('Diversion note', d => { feField('div', d); render(); feRefresh(); }, leg.diversion.desc || leg.diversion.note || ''); return;
     case 'gps':
       if (!navigator.geolocation) return alert('GPS not available');
       btn.textContent = '📍 …';
@@ -2844,7 +2839,7 @@ function feAct(act, btn) {
     case 'delflag': {
       if (!confirm('Delete Flag ' + f.id + ' (' + f.id * FLAG_M + 'm) on leg ' + (li + 1) + '? Later flags move up 50m.')) return;
       feSnap(); selectedFlag = f; currentLeg = leg; delFlag(true);
-      feState = {li: Math.min(li, legs.length - 1), fi: Math.max(0, fi - 1)};
+      feState = {li: Math.min(li, legs.length - 1), fi}; // v8.4 CORNER_DELETE_SEL_FIX: the flag that moves into the deleted slot (feCtx clamps to the new last flag)
       feShowUndo('Flag ' + f.id + ' deleted'); feRender(); return;
     }
     case 'delaim': return feDel('Aim', () => setBearingFrom(leg, fi, ''));
@@ -2918,11 +2913,11 @@ function feField(name, val) { // autosave text edits (no full redraw, so a follo
   ov.addEventListener('change', e => { const t = e.target; if (t && t.dataset && t.dataset.feField) feField(t.dataset.feField, t.value); });
   document.getElementById('fe-prev').onclick = () => feMove(-1);
   document.getElementById('fe-next').onclick = () => feMove(1);
-  document.getElementById('fe-done').onclick = () => feClose();
+  document.getElementById('fe-done').onclick = () => { try { autoSave(); } catch (e) {} feClose(); }; // Save
   document.getElementById('fe-ro-unlock').onclick = () => showUnlock('TD' + level + ' is view only in the free version.');
   document.getElementById('fe-undo-btn').onclick = () => { feRestore(); feHideUndo(); feRender(); };
   let sx = 0, sy = 0, ok = false;
-  ov.addEventListener('touchstart', e => { const t = e.touches[0]; ok = e.touches.length === 1 && !e.target.closest('textarea, input, #fe-chips'); sx = t.clientX; sy = t.clientY; }, {passive: true});
+  ov.addEventListener('touchstart', e => { const t = e.touches[0]; ok = e.touches.length === 1 && !e.target.closest('textarea, input, #fe-chips, #fe-bar'); sx = t.clientX; sy = t.clientY; }, {passive: true});
   ov.addEventListener('touchend', e => {
     if (!ok) return; ok = false;
     const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
