@@ -46,28 +46,44 @@ button:active { transform: scale(0.95); }
   border: 2px solid var(--border); border-radius: 6px; display: flex;
   align-items: center; justify-content: space-around; font-size: 12px; color: #000; font-weight: bold; }
 .article-mark { color: var(--article); font-weight: bold; }
-#toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0;
-  border-top: 2px solid var(--accent); justify-content: center; }
+#toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0 10px;
+  border-top: 1px solid #34353b; justify-content: center; }
+/* V85_MAIN_A: map-first main screen, stat labels, bottom bar + menu sheet */
+#toolbar button { flex: 1 1 0; min-width: 0; min-height: 48px; padding: 4px 2px; font-size: 15px; border-radius: 24px; border: 1px solid #34353b; background: #1e1f23; }
+#toolbar #add-flag { background: #ff9f1a; border-color: #ff9f1a; color: #111; flex-grow: 1.25; }
+#toolbar #del-flag { flex-grow: 1.15; }
+#toolbar #div-l-btn, #toolbar #div-r-btn { flex: 0 0 auto; padding: 4px 10px; }
+#mm-sheet { width: 100%; max-width: 480px; background: #1e1f23; border-top: 1px solid #34353b; border-radius: 18px 18px 0 0; padding: 8px 14px 22px; display: flex; flex-direction: column; gap: 8px; }
+#mm-sheet button { min-height: 50px; text-align: left; padding: 0 16px; font-size: 17px; border-radius: 14px; border: 1px solid #34353b; background: #26272c; }
+#mm-sheet #mm-close { text-align: center; background: transparent; }
+.mm-grab { width: 40px; height: 5px; border-radius: 3px; background: #44454c; margin: 0 auto 4px; }
+.stp { display: inline-block; border: 1px solid #34353b; border-radius: 12px; padding: 2px 8px; margin: 2px; line-height: 1.25; background: #1e1f23; font-weight: 500; font-size: 12.5px; color: #ececf0; }
+#leg-banner { font-size: 16px !important; padding: 4px 6px !important; border-radius: 12px !important; }
+#leg-banner button { min-height: 40px; min-width: 40px; padding: 4px 8px; font-size: 15px; }
+.stp small { color: #a8a9b1; font-size: 12px; } .stp.over { border-color: #7a3b1d; color: #ffb37a; } .stp.ok { border-color: #2e5a35; }
+.stx { font-size: 12px; color: #a8a9b1; font-weight: 500; }
 #mudmap-container { 
   position: relative; 
   width: 100%; 
-  height: 160px; 
+  height: 27vh; /* V85_MAIN_A: taller map (was 160px) */
+  min-height: 160px;
   background: #000; 
-  border: 2px solid var(--accent); 
-  border-radius: 8px; 
-  margin-bottom: 8px;
+  border: 1px solid #34353b; 
+  border-radius: 12px; 
+  margin: 6px 0 4px;
+  overflow: hidden;
   flex-shrink: 0;
 }
 #mudmap { width: 100%; height: 100%; }
 #status { 
-  font-size: 18px; 
+  font-size: 14px; 
   text-align: center; 
-  padding: 8px 6px; 
-  background: #222; 
-  border-top: 2px solid var(--accent);
+  padding: 4px 2px; 
+  background: transparent; 
+  border-top: 1px solid #34353b;
   flex-shrink: 0;
-  line-height: 1.4;
-  max-height: 120px;
+  line-height: 1.3;
+  max-height: 104px;
   overflow: auto;
   font-weight: bold;
 }
@@ -91,27 +107,27 @@ button:active { transform: scale(0.95); }
 #flag-edit button.red { color: #ff5a52; border-color: #5a2a28; }
 #fe-banner { padding: 6px 10px 0; }
 .fe-top { display: flex; align-items: center; gap: 8px; }
-.fe-top h1 { flex: 1; margin: 0; text-align: center; font-size: 17px; font-weight: 650; }
-.fe-top h1 small { display: block; font-size: 12px; color: #9a9ba3; font-weight: 500; }
-.fe-edtag { font-size: 11px; color: #ff9f1a; letter-spacing: .04em; vertical-align: middle; }
+.fe-top h1 { flex: 1; margin: 0; text-align: center; font-size: 21px; font-weight: 650; } /* V85 bigger */
+.fe-top h1 small { display: block; font-size: 14px; color: #b9bac2; font-weight: 500; }
+.fe-edtag { font-size: 13px; color: #ff9f1a; letter-spacing: .04em; vertical-align: middle; }
 #flag-edit .fe-ib { min-width: 40px; min-height: 40px; border-radius: 20px; font-size: 20px; }
 #fe-chips { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0; }
 #fe-chips button { position: relative; min-width: 44px; flex: none; font-size: 15px; }
 #fe-chips button.sel { border-color: #ff9f1a; color: #ff9f1a; box-shadow: inset 0 0 0 1px #ff9f1a; background: #1e1f23; }
 #fe-chips .fe-dot { position: absolute; top: 4px; right: 5px; width: 6px; height: 6px; }
 #fe-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 10px 8px; }
-.fe-card { background: #1e1f23; border: 1px solid #34353b; border-radius: 14px; padding: 9px 12px; margin-bottom: 8px; cursor: pointer; }
+.fe-card { background: #1e1f23; border: 1px solid #34353b; border-radius: 16px; padding: 13px 15px; margin-bottom: 10px; cursor: pointer; }
 .fe-card.sel { border-color: #ff9f1a; }
 .fe-ch { display: flex; align-items: baseline; gap: 8px; }
-.fe-ch b { font-size: 16px; } .fe-d { color: #9a9ba3; font-size: 12px; } .fe-tag { margin-left: auto; font-size: 11px; color: #ff9f1a; font-weight: 700; letter-spacing: .04em; }
-.fe-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: 15px; word-break: break-word; }
-.fe-card.sel .fe-row[data-fe] { min-height: 36px; margin-top: 2px; }
+.fe-ch b { font-size: 21px; } .fe-d { color: #b9bac2; font-size: 15px; } .fe-tag { margin-left: auto; font-size: 13px; color: #ff9f1a; font-weight: 700; letter-spacing: .04em; }
+.fe-row { display: flex; align-items: center; gap: 10px; margin-top: 7px; font-size: 19px; word-break: break-word; }
+.fe-card.sel .fe-row[data-fe] { min-height: 44px; margin-top: 2px; }
 .fe-card.sel .fe-row[data-fe]::after { content: '✎'; margin-left: auto; color: #9a9ba3; font-size: 13px; }
-.fe-sub2 { color: #9a9ba3; font-size: 12px; }
-.fe-dot { width: 9px; height: 9px; border-radius: 5px; flex: none; display: inline-block; }
+.fe-sub2 { color: #b9bac2; font-size: 15px; }
+.fe-dot { width: 11px; height: 11px; border-radius: 6px; flex: none; display: inline-block; }
 .fe-dot.dir { background: #4aa3ff; } .fe-dot.loc { background: #4cd47a; } .fe-dot.ct { background: #2fd6e6; }
 #fe-bar { background: #16171a; border-top: 1px solid #34353b; padding: 6px 10px 0; }
-.fe-lbl { font-size: 12px; color: #9a9ba3; padding: 0 2px 6px; } .fe-lbl b { color: #ff9f1a; } .fe-note { color: #ececf0; }
+.fe-lbl { font-size: 15px; color: #b9bac2; padding: 0 2px 6px; } .fe-lbl b { color: #ff9f1a; } .fe-note { color: #ececf0; }
 .fe-panel { display: none; flex-wrap: wrap; gap: 6px; padding-bottom: 8px; } .fe-panel.open { display: flex; }
 .fe-seg { display: flex; gap: 4px; background: #26272c; border-radius: 12px; padding: 3px; }
 .fe-seg button { border: 0 !important; background: transparent !important; } .fe-seg button.on { background: #ff9f1a !important; color: #111 !important; }
@@ -119,11 +135,14 @@ button:active { transform: scale(0.95); }
 .fe-main button, .fe-turns .fe-mbtn { min-height: 50px !important; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 18px !important; line-height: 1; }
 .fe-main button small, .fe-turns small { font-size: 12px; font-weight: 600; }
 .fe-turns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.fe-turns button { min-height: 44px !important; }
+.fe-turns button { min-height: 52px !important; font-size: 17px !important; }
+.fe-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #34353b; cursor: default; }
+#flag-edit .fe-acts button { min-height: 46px; font-size: 16px; padding: 0 14px; border-radius: 23px; }
+#flag-edit .fe-acts .fe-seg button { min-height: 40px; }
 #fe-foot { display: flex; gap: 8px; padding: 8px 10px 14px; background: #16171a; }
-#fe-foot button { flex: 1; min-height: 44px; font-size: 15px; }
+#fe-foot button { flex: 1; min-height: 54px; font-size: 18px; }
 #fe-foot #fe-done { background: #ff9f1a; border-color: #ff9f1a; color: #111; }
-#fe-undo { position: absolute; left: 10px; right: 10px; bottom: 190px; background: #26272c; color: #fff; border: 1px solid #ff9f1a; border-radius: 12px; padding: 6px 10px; display: none; align-items: center; justify-content: space-between; gap: 8px; z-index: 2; }
+#fe-undo { position: absolute; left: 10px; right: 10px; bottom: 150px; background: #26272c; color: #fff; border: 1px solid #ff9f1a; border-radius: 12px; padding: 6px 10px; display: none; align-items: center; justify-content: space-between; gap: 8px; z-index: 2; }
 #fe-undo.show { display: flex; }
 #fe-ro { display: none; margin: 0 10px 6px; padding: 6px 8px; background: #3a2a00; border: 1px solid #ff9f1a; border-radius: 10px; font-size: 14px; }
 #fullmap { position: fixed; inset: 0; background: #000; display: none; z-index: 150;
@@ -158,24 +177,31 @@ button:active { transform: scale(0.95); }
   </select>
 </header>
 <div id="main">
+  <div id="mudmap-container"><canvas id="mudmap" width="140" height="140"></canvas></div><!-- V85_MAIN_A: map first, taller -->
   <div id="lock-banner" style="display:none;text-align:center;background:#333;color:#ffeb3b;padding:6px;border-radius:6px;margin:4px 0;">🔒 <span id="lock-banner-txt"></span> <button id="lock-banner-btn" type="button" style="padding:4px 10px;">Unlock</button></div>
   <div id="leg-banner" style="display:none;text-align:center;font-weight:bold;font-size:20px;padding:6px;border-radius:6px;margin:4px 0;"></div>
   <div id="leg-view"></div>
-  <div id="mudmap-container"><canvas id="mudmap" width="140" height="140"></canvas></div>
 </div>
 <div id="status">Select level then start</div>
 <div id="toolbar">
-  <button id="add-flag">+50m Flag</button>
-  <button id="del-flag">−50m Flag</button>
+  <button id="add-flag">+50 m</button>
+  <button id="del-flag">−50 m</button>
   <button id="div-l-btn" style="display:none">Div L</button>
   <button id="div-r-btn" style="display:none">Div R</button>
-  <button id="finish-btn" type="button">Finish Track</button>
-  <button id="undo">Undo</button>
-  <button id="new-track">Save &amp; New</button>
-  <button id="view-map">Full Map</button>
-  <button id="load-btn" type="button">Load</button>
-  <button id="new-nosave" type="button">New</button>
-  <button id="export-btn" type="button">📤 Send track</button><!-- SEND_TRACK -->
+  <button id="undo">↶ Undo</button>
+  <button id="finish-btn" type="button">🏁 Finish</button>
+  <button id="menu-btn" type="button" aria-label="Menu">⋯ Menu</button><!-- V85_MAIN_A: bottom bar -->
+</div>
+<div id="main-menu" class="modal" style="z-index:150;align-items:flex-end;"><!-- V85_MAIN_A: menu sheet -->
+  <div id="mm-sheet">
+    <div class="mm-grab"></div>
+    <button id="view-map">🗺 Full Map</button>
+    <button id="new-track">💾 Save &amp; New</button>
+    <button id="load-btn" type="button">📂 Load</button>
+    <button id="new-nosave" type="button">✚ New</button>
+    <button id="export-btn" type="button">📤 Send track</button><!-- SEND_TRACK -->
+    <button id="mm-close" type="button">Close</button>
+  </div>
 </div>
 
 <div id="pdfready-modal" class="modal" style="z-index:420;"><!-- PDF_VIEW_SEND -->
@@ -922,6 +948,16 @@ function autoSave() {
     if (legs.length) localStorage.setItem('tracking-autosave', JSON.stringify({level, legs, articlesPlaced, crossTracksPlaced, hideDesc, trackDone, t: Date.now()}));
   } catch (e) {}
 }
+// ARTICLE_QUOTA_HIDE: when the level's article quota is used up, hide every '+ Art' button and show this note instead
+function artQuotaFull() { const n = R(level).articles || 0; return n > 0 && articlesPlaced >= n; }
+function artQuotaNote() { const n = R(level).articles || 0; return 'Articles ' + n + '/' + n + ' used – delete one to add another'; }
+// V85_MAIN_A: show the status text as small stat labels (same facts, same words)
+function v85Stats(cheat) {
+  const parts = cheat.split(/<br>| \| /).map(x => x.trim()).filter(Boolean);
+  return parts.map(p => { const m = p.match(/(\d+)\/(\d+)/); const over = m && +m[1] > +m[2], done = m && +m[1] === +m[2];
+    const lab = p.replace(/\s*\((\d+) left\)/, (x, n) => ' <small>(' + n + ' left)</small>');
+    return /^(Start:|TD\d)/.test(p) ? `<span class="stp stx">${lab}</span>` : `<span class="stp${over ? ' over' : done ? ' ok' : ''}">${lab}</span>`; }).join('');
+}
 function render() {
   try { normalizeTrack(); } catch (e) {}
   setTimeout(autoSave, 0);
@@ -952,7 +988,7 @@ function render() {
     const hint = sf
       ? `Flag ${sf.isStart ? 0 : sf.id} selected: −50m deletes it, +50m adds after it`
       : 'Tap a flag to open its edit screen (otherwise ±50m works on the last flag)';
-    const artBtns = (sf && sf.article && !sf.isStart) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-del" style="padding:6px 10px;margin:2px;background:#f44336;color:#fff;">✕ Delete article ${sf.article.label || ''} on F${sf.id}</button></div>` : (sf && !sf.article) ? (() => { const sl = currentLeg.flags.indexOf(sf), okB = !sf.isStart && !articleCheck(currentLeg, sl, false), okA = !articleCheck(currentLeg, sl, true); // CORNER_DELETE_SEL_FIX
+    const artBtns = (sf && sf.article && !sf.isStart) ? `<div style="margin-top:4px;"><button type="button" id="chip-art-del" style="padding:6px 10px;margin:2px;background:#f44336;color:#fff;">✕ Delete article ${sf.article.label || ''} on F${sf.id}</button></div>` : (sf && !sf.article && artQuotaFull()) ? `<div style="margin-top:4px;font-size:13px;font-weight:normal;">${artQuotaNote()}</div>` /* ARTICLE_QUOTA_HIDE */ : (sf && !sf.article) ? (() => { const sl = currentLeg.flags.indexOf(sf), okB = !sf.isStart && !articleCheck(currentLeg, sl, false), okA = !articleCheck(currentLeg, sl, true); // CORNER_DELETE_SEL_FIX
       return (okA || okB) ? `<div style="margin-top:4px;">${okB ? `<button type="button" id="chip-art-before" style="padding:6px 10px;margin:2px;">+ Art before F${sf.isStart ? 0 : sf.id}</button>` : ''}${okA ? `<button type="button" id="chip-art-at" style="padding:6px 10px;margin:2px;">+ Art at F${sf.isStart ? 0 : sf.id}</button>` : ''}</div>` : `<div style="margin-top:4px;font-size:13px;font-weight:normal;">${sl === currentLeg.flags.length - 1 && legs.indexOf(currentLeg) < legs.length - 1 ? 'Corner flag – no article' : 'No article at F' + (sf.isStart ? 0 : sf.id) + ' (too close to a turn)'}</div>`; })() : '';
     const navB = (id, t, on) => `<button type="button" id="${id}" class="leg-nav" ${on ? '' : 'disabled'} style="min-width:44px;min-height:36px;margin:0 6px;font-size:20px;font-weight:bold;border-radius:8px;border:2px solid #666;background:#222;color:#fff;${on ? '' : 'opacity:.3;'}">${t}</button>`; // DESKTOP_LEG_ARROWS
     ban.innerHTML = '<div>' + navB('leg-prev-btn', '‹', li > 0) + 'LEG ' + (li + 1) + ' of ' + legs.length + (editing ? ' – EDITING' : '') + navB('leg-next-btn', '›', li < legs.length - 1) + '</div>'
@@ -1004,6 +1040,7 @@ function render() {
       ${dirButtons}
       ${f.article
         ? `<div class="article-mark edit-art" data-i="${i}">Article: ${f.article.desc} <button type="button" class="del-art" data-i="${i}">✕ delete</button></div>`
+        : artQuotaFull() ? `<div class="muted art-quota-note" style="font-size:13px;color:#aaa;">${artQuotaNote()}</div>` /* ARTICLE_QUOTA_HIDE */
         : (() => { const okB = !f.isStart && !articleCheck(currentLeg, i, false), okA = !articleCheck(currentLeg, i, true); // CORNER_DELETE_SEL_FIX
             return (okB ? `<button type="button" class="add-art-before" data-i="${i}">+ Art before</button> ` : '') + (okA ? `<button type="button" class="add-art-at" data-i="${i}">+ Art at flag</button>` : '')
               + (!okA && !okB ? `<div class="muted" style="font-size:13px;color:#aaa;">${isLast && legs.indexOf(currentLeg) < legs.length - 1 ? 'Corner flag – no article' : 'No article here (too close to a turn)'}</div>` : ''); })()}
@@ -1181,7 +1218,7 @@ function render() {
     if (n && n < rules.firstCornerMinM) cheat += `<br>First corner min ${rules.firstCornerMinM}m (this leg ${n}m)`;
   }
   cheat += `<br>Start: ${(legs[0]&&legs[0].start&&legs[0].start.desc)||'—'}`;
-  statusEl.innerHTML = cheat;
+  statusEl.innerHTML = v85Stats(cheat); // V85_MAIN_A: stat labels
   drawMud();
   bindButtons();
   setTimeout(() => {
@@ -1202,7 +1239,7 @@ function getTurn(dir) {
 function drawMud() {
   const c = mudmap;
   const w = c.width = Math.max(200, c.parentElement.clientWidth || 360);
-  const h = c.height = 160;
+  const h = c.height = Math.max(160, c.parentElement.clientHeight || 160); // V85_MAIN_A: taller map, same drawing
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, w, h);
@@ -2064,6 +2101,10 @@ document.getElementById('begin-btn').onclick = () => {
   }
 };
 document.getElementById('add-flag').onclick = addFlag;
+{ const mm = document.getElementById('main-menu'); // V85_MAIN_A: menu sheet (buttons keep their own handlers)
+  document.getElementById('menu-btn').onclick = () => { mm.style.display = 'flex'; mm.classList.add('show'); };
+  const hide = () => { mm.style.display = ''; mm.classList.remove('show'); };
+  mm.addEventListener('click', e => { if (e.target === mm || e.target.closest('#mm-sheet button')) setTimeout(hide, 0); }); }
 document.getElementById('del-flag').onclick = delFlag;
 // Re-bind buttons robustly
 function bindButtons() {
@@ -2427,7 +2468,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.4';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.5';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
@@ -2794,24 +2835,40 @@ function feRender() {
   if (!f.isStart) pMore += btn('delflag', '🗑 Delete flag', ' class="red"' + dis);
   // note shown in the bar when no article can go here (CORNER_DELETE_SEL_FIX)
   let note = '';
-  if (!f.article && !f.isStart && !canAt && !canBefore) note = isLast && li < legs.length - 1 ? 'corner flag – no article' : 'no article here (too close to a turn)';
-  else if (!f.article && !quotaArt && !f.isStart) note = 'article quota used';
-  // main buttons
-  let main;
+  if (!f.article && !quotaArt && !f.isStart) note = artQuotaNote(); // ARTICLE_QUOTA_HIDE
+  else if (!f.article && !f.isStart && !canAt && !canBefore) note = isLast && li < legs.length - 1 ? 'corner flag – no article' : 'no article here (too close to a turn)';
+  // V85_MAIN_A (edit screen): no More button – every option of the selected flag is always visible on its card
+  const acts = [];
+  if (f.article) { const a = f.article;
+    acts.push(btn('dict-art', '✎ Edit article ' + feEsc(a.label || ''), dis));
+    if (!f.isStart) acts.push(`<div class="fe-seg">${btn('art-at', 'At F' + fnum, ` class="${a.atFlag ? 'on' : ''}"` + off(!a.atFlag && !canAt))}${btn('art-before', 'Before F' + fnum, ` class="${!a.atFlag ? 'on' : ''}"` + off(a.atFlag && !canBefore))}</div>`);
+    if (!f.isStart) acts.push(btn('delart', '🗑 Article ' + feEsc(a.label || ''), ' class="red"' + dis));
+  } else { if (canAt && quotaArt) acts.push(btn('addart-at', '＋ Article at F' + fnum, dis)); if (canBefore && quotaArt) acts.push(btn('addart-before', '＋ Article before F' + fnum, dis)); }
+  if (ct) { const at = !!ct.atFlag, tag = feCtTag(li, fi);
+    acts.push(btn('dict-cross', '✎ Edit ' + tag, dis));
+    acts.push(`<div class="fe-seg">${btn('ct-at', tag + ' at F' + fnum, ` class="${at ? 'on' : ''}"` + off(!at && !canCtAt))}${btn('ct-before', 'before F' + fnum, ` class="${!at ? 'on' : ''}"` + off(at && !canCtBe))}</div>`);
+    acts.push(btn('delcross', '🗑 ' + tag, ' class="red"' + dis));
+  } else if (!f.isStart && quotaCt) { if (canCtAt) acts.push(btn('addcross-at', '＋ Cross-track at F' + fnum, dis)); if (canCtBe) acts.push(btn('addcross', '＋ Cross-track before F' + fnum, dis)); }
+  if (!f.isStart) { const ai = feAimInfo(leg, fi), prevAim = aimPrev(leg, fi);
+    acts.push(ai.isNew ? btn('dict-aim', '✎ Aim', dis) : btn('addaim', '＋ New aim here', dis));
+    if (ai.isNew && prevAim) acts.push(btn('delaim', '🗑 Delete aim ' + ai.n, ' class="red"' + dis)); }
+  acts.push(btn('gps', '📍 ' + (f.gps ? 'Re-drop GPS' : 'Drop GPS'), dis));
+  if (f.gps) acts.push(btn('delgps', '🗑 GPS', ' class="red"' + dis));
+  acts.push(btn('insert', '＋ Insert flag after', dis));
+  if (isLast && !f.isStart && editing) acts.push(btn('edit-corner', '✎ Corner note', dis));
+  if (f.cornerNote) acts.push(btn('delcorner', '🗑 Corner note', ' class="red"' + dis));
+  if (leg.diversion && leg.diversion.atFlag === f.id) acts.push(btn('deldiv', '🗑 Diversion', ' class="red"' + dis));
+  offs.forEach(x => acts.push(btn('dellbl', '↺ ' + feEsc(FE_LBL[x] || x), ` data-k="${feEsc(x)}"` + dis)));
+  if (!isLast) acts.push(btn('jump', '↱ Go to corner F' + (leg.flags[lastI].isStart ? 0 : leg.flags[lastI].id), ` data-i="${lastI}"`));
+  if (!f.isStart) acts.push(btn('delflag', '🗑 Delete flag', ' class="red"' + dis));
+  const selCard = document.querySelector('#fe-body .fe-card.sel');
+  if (selCard) selCard.insertAdjacentHTML('beforeend', `<div class="fe-acts" data-acts="1">${acts.join('')}</div>`);
+  // bottom bar: label/note, plus the corner-flag turn buttons
   const cornerTurns = isLast && !f.isStart && (editing || (!vo && !trackDone && !(rules.maxLegs && legs.length >= rules.maxLegs)));
-  if (cornerTurns) {
-    const cur = f.direction || leg.exitDir || '';
-    main = `<div class="fe-turns">${dirs.map(d => btn(editing ? 'exit' : 'turn', FE_DIRS[d].replace('Obtuse', 'Obt'), ` data-dir="${d}" class="${d === cur ? 'on' : ''}"` + dis)).join('')}${btn('panel', '⋯<small>More</small>', ` data-p="more" class="fe-mbtn${feUI.p === 'more' ? ' on' : ''}"`)}</div>`;
-  } else {
-    main = `<div class="fe-main">`
-      + btn('panel', '＋<small>Article</small>', ` data-p="art" class="${feUI.p === 'art' ? 'on' : ''}"` + (pArt ? '' : ' disabled'))
-      + btn('panel', '✕<small>Cross</small>', ` data-p="cross" class="${feUI.p === 'cross' ? 'on' : ''}"` + (pCt ? '' : ' disabled'))
-      + btn('jump', '↱<small>Turn</small>', ` data-i="${lastI}"` + (f.isStart && lastI === fi ? ' disabled' : ''))
-      + btn('panel', '⋯<small>More</small>', ` data-p="more" class="${feUI.p === 'more' ? 'on' : ''}"`) + '</div>';
-  }
-  const panel = (k, html) => `<div class="fe-panel${feUI.p === k ? ' open' : ''}" data-panel="${k}">${html}</div>`;
-  document.getElementById('fe-bar').innerHTML = `<div class="fe-lbl">Actions for <b>F${fnum} · ${f.isStart ? '0 m' : fnum * FLAG_M + ' m'}</b>${note ? ` <span class="fe-note">· ${note}</span>` : ''}</div>`
-    + panel('art', pArt) + panel('cross', pCt) + panel('more', pMore) + main;
+  let main = '';
+  if (cornerTurns) { const cur = f.direction || leg.exitDir || '';
+    main = `<div class="fe-turns">${dirs.map(d => btn(editing ? 'exit' : 'turn', FE_DIRS[d].replace('Obtuse', 'Obt'), ` data-dir="${d}" class="${d === cur ? 'on' : ''}"` + dis)).join('')}</div>`; }
+  document.getElementById('fe-bar').innerHTML = `<div class="fe-lbl">${cornerTurns ? (editing ? 'Turn at' : 'Turn after') : 'Selected'} <b>F${fnum} · ${f.isStart ? '0 m' : fnum * FLAG_M + ' m'}</b>${note ? ` <span class="fe-note">· ${note}</span>` : ''}</div>` + main;
   const sc = document.querySelector('#fe-body .fe-card.sel'); if (sc && sc.scrollIntoView) sc.scrollIntoView({block: 'nearest'});
 }
 function feDel(label, fn) { feSnap(); saveState(); fn(); render(); drawMud(); feShowUndo(label + ' deleted'); feRender(); }
@@ -2917,7 +2974,7 @@ function feField(name, val) { // autosave text edits (no full redraw, so a follo
   document.getElementById('fe-ro-unlock').onclick = () => showUnlock('TD' + level + ' is view only in the free version.');
   document.getElementById('fe-undo-btn').onclick = () => { feRestore(); feHideUndo(); feRender(); };
   let sx = 0, sy = 0, ok = false;
-  ov.addEventListener('touchstart', e => { const t = e.touches[0]; ok = e.touches.length === 1 && !e.target.closest('textarea, input, #fe-chips, #fe-bar'); sx = t.clientX; sy = t.clientY; }, {passive: true});
+  ov.addEventListener('touchstart', e => { const t = e.touches[0]; ok = e.touches.length === 1 && !e.target.closest('textarea, input, #fe-chips, #fe-bar, .fe-acts'); sx = t.clientX; sy = t.clientY; }, {passive: true});
   ov.addEventListener('touchend', e => {
     if (!ok) return; ok = false;
     const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
