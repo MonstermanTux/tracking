@@ -224,7 +224,7 @@ html.day .lic-about a { color:#0B5560; }
 <body>
 <div id="start-page" style="position:fixed;inset:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;">
   <h1 style="color:#ffeb3b;margin-bottom:4px;">Tracking</h1>
-  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v8.7 · © All Breeds Tracking Club</div>
+  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v8.7.1 · © All Breeds Tracking Club</div>
   <button id="start-badge" type="button" style="font-size:13px;padding:6px 12px;margin-bottom:12px;"></button>
   <p style="margin-bottom:16px;">Select track level</p>
   <select id="start-level" style="font-size:20px;padding:12px;margin-bottom:20px;">
@@ -271,6 +271,7 @@ html.day .lic-about a { color:#0B5560; }
     <button id="load-btn" type="button">📂 Load</button>
     <button id="new-nosave" type="button">✚ New</button>
     <button id="export-btn" type="button">📤 Send track</button><!-- SEND_TRACK -->
+    <button id="menu-pdf-btn" type="button" style="display:none">📄 PDF</button><!-- V871_MENU_PDF -->
     <button id="about-btn" type="button">ⓘ About</button><!-- V87_LICENCE -->
     <button id="mm-close" type="button">Close</button>
   </div>
@@ -317,7 +318,7 @@ html.day .lic-about a { color:#0B5560; }
 </div>
 <div id="about-modal" class="modal" style="z-index:460;"><!-- V87_LICENCE: Menu > About -->
   <div class="modal-content">
-    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v8.7</h3>
+    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v8.7.1</h3>
     <div id="about-lic" style="font-size:14px;"></div>
     <div class="lic-about">© All Breeds Tracking Club.<br>Unlock codes: email the secretary at <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20unlock%20code">trackingapp.zrphg@simplelogin.com</a><br>Suggestions: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20suggestion">trackingapp.zrphg@simplelogin.com</a><br>Donations to the club equipment fund: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Club%20equipment%20fund%20donation">contact us</a></div>
     <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button id="about-close" type="button">Close</button></div>
@@ -637,7 +638,10 @@ document.addEventListener('click', e => {
 
 let hideDesc = '';
 let trackDone = false;
-function setTrackDone(v) { trackDone = v; const b = document.getElementById('pdf-btn'); if (b) b.style.display = v ? 'inline-block' : 'none'; }
+let finishedOnce = false; // V871_MENU_PDF: this track has passed Finish at least once (edits after that keep the Menu PDF button)
+function setTrackDone(v, reset) { trackDone = v; if (reset) finishedOnce = false; if (v) finishedOnce = true;
+  const b = document.getElementById('pdf-btn'); if (b) b.style.display = v ? 'inline-block' : 'none';
+  const m = document.getElementById('menu-pdf-btn'); if (m) m.style.display = finishedOnce ? '' : 'none'; }
 let diversion = null;
 
 // Dogs Australia (ANKC Ltd) — Rules for the conduct of Tracking Trials
@@ -1517,9 +1521,11 @@ function drawFullMap(pw, ph) {
   }
   // collision boxes: track dots + line samples, then each label as placed
   labelBoxes = []; labelHits = []; aimHits = []; artRings = []; crossTags = []; ctSegs = []; window.__lbl = []; // V87_LABELS stats
+  window.__lineSegs = []; // V871_LABEL_CLEAR: drawn lines, for the label checks
   const L0 = legs[0], LN = legs[legs.length - 1];
   points.forEach((p, k) => {
     labelBoxes.push({x: p.x - 9/mapScale, y: p.y - 9/mapScale, w: 18/mapScale, h: 18/mapScale});
+    if (k) window.__lineSegs.push({x1: points[k-1].x, y1: points[k-1].y, x2: p.x, y2: p.y, track: true});
     if (k) { const a = points[k-1]; const n = Math.ceil(Math.hypot(p.x-a.x, p.y-a.y) / (8/mapScale));
       for (let t = 1; t < n; t++) { const sx = a.x + (p.x-a.x)*t/n, sy = a.y + (p.y-a.y)*t/n;
         labelBoxes.push({x: sx - 3/mapScale, y: sy - 3/mapScale, w: 6/mapScale, h: 6/mapScale}); } }
@@ -1534,6 +1540,19 @@ function drawFullMap(pw, ph) {
   fctx.beginPath();
   points.forEach((p,i) => { if(i===0) fctx.moveTo(p.x,p.y); else fctx.lineTo(p.x,p.y); });
   fctx.stroke();
+  // V871_LABEL_CLEAR: reserve the cross-track lines (and below, the gate and diversion lines) as no-go boxes BEFORE any
+  // label is placed, so early labels (HIDE, START, gate, diversion) can no longer land on a line drawn later
+  const lineBoxes = (x1, y1, x2, y2, hw) => { const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / (6/mapScale)));
+    for (let t = 0; t <= n; t++) { const sx = x1 + (x2 - x1)*t/n, sy = y1 + (y2 - y1)*t/n; labelBoxes.push({x: sx - hw, y: sy - hw, w: 2*hw, h: 2*hw}); } window.__lineSegs.push({x1, y1, x2, y2}); };
+  points.forEach((p, idx) => {
+    if (!p.cross) return;
+    const atF = !!p.cross.atFlag, mx = atF || p.midX === undefined ? p.x : p.midX, my = atF || p.midY === undefined ? p.y : p.midY;
+    const prev = points[Math.max(0, idx-1)] || p, nxt = points[idx+1];
+    let ang = Math.atan2(p.y - prev.y, p.x - prev.x) + Math.PI/2;
+    if (atF && nxt && prev !== p) { const a1 = Math.atan2(p.y - prev.y, p.x - prev.x), a2 = Math.atan2(nxt.y - p.y, nxt.x - p.x); ang = Math.atan2(Math.sin(a1) + Math.sin(a2), Math.cos(a1) + Math.cos(a2)) + Math.PI/2; }
+    const CTH = Math.max(30 * fmScale, 36 / mapScale) + 4 / mapScale; // same line as the cross-track pass, plus its end circles
+    lineBoxes(mx + Math.cos(ang)*CTH, my + Math.sin(ang)*CTH, mx - Math.cos(ang)*CTH, my - Math.sin(ang)*CTH, 5 / mapScale);
+  });
   // diversion: 30° off the first leg from the start flag, ~70 m long
   const dvLeg = legs.find(l => l.diversion);
   if (dvLeg && points.length > 1) [points[0]].forEach(p => {
@@ -1555,6 +1574,7 @@ function drawFullMap(pw, ph) {
     fctx.moveTo(ex, ey);
     fctx.lineTo(ex - Math.cos(ang + 0.4)*12/mapScale, ey - Math.sin(ang + 0.4)*12/mapScale);
     fctx.stroke();
+    lineBoxes(p.x, p.y, ex, ey, 4 / mapScale); // V871_LABEL_CLEAR
     fctx.fillStyle = C.div; fctx.font = 'bold ' + (13/mapScale) + 'px sans-serif';
     wrapText('DIVERSION ' + (p.div.side === 'L' ? 'LEFT' : 'RIGHT') + (p.div.desc ? ': ' + p.div.desc : ''), ex + 6/mapScale, ey + 4/mapScale, {o: L0, k: 'div'});
     fctx.strokeStyle = C.track;
@@ -1571,6 +1591,7 @@ function drawFullMap(pw, ph) {
     fctx.moveTo(s.x - Math.cos(gateAng)*glen, s.y - Math.sin(gateAng)*glen);
     fctx.lineTo(s.x + Math.cos(gateAng)*glen, s.y + Math.sin(gateAng)*glen);
     fctx.stroke();
+    lineBoxes(s.x - Math.cos(gateAng)*glen, s.y - Math.sin(gateAng)*glen, s.x + Math.cos(gateAng)*glen, s.y + Math.sin(gateAng)*glen, 4 / mapScale); // V871_LABEL_CLEAR
     fctx.fillStyle = C.gate;
     fctx.font = (11/mapScale) + 'px sans-serif';
     wrapText('GATE ' + RULES.gateWidthM + 'm', s.x + 8/mapScale, s.y + 14/mapScale, {o: L0, k: 'gate'});
@@ -1749,8 +1770,10 @@ function drawFullMap(pw, ph) {
             const lo = sMin + w/2, hi = sMax - w/2;
             const slides = [0];
             for (let k = 1; k <= 24; k++) { const a = k * st * (mid >= 0 ? 1 : -1); slides.push(a, -a); }
-            const okS = sv => sv === 0 || (lo <= hi ? (sv >= lo - 1e-6 && sv <= hi + 1e-6) : (sv >= sMin - 1e-6 && sv <= sMax + 1e-6));
-            const okL = slides.filter(okS);
+            const okS = sv => lo <= hi ? (sv >= lo - 1e-6 && sv <= hi + 1e-6) : (sv >= sMin - 1e-6 && sv <= sMax + 1e-6);
+            // V871_LABEL_CLEAR: the label stays within its own leg (v8.7 always allowed the arrow spot, so a long first-leg
+            // note could hang past the start); nearest in-leg spot to the arrow comes first
+            const okL = slides.filter(okS); if (lo <= hi) { const c0 = Math.min(hi, Math.max(lo, 0)); if (!okL.some(v => Math.abs(v - c0) < 1e-6)) okL.unshift(c0); }
             [0, 0.5, 1].forEach(e => okL.forEach(sv => [outS, -outS].forEach(sd => out.push([nX*sd*(dd + e*lh) + ux*sv, nY*sd*(dd + e*lh) + uy*sv, true]))));
             [2, 3, 4, 5].forEach(e => okL.forEach(sv => [outS, -outS].forEach(sd => out.push([nX*sd*(dd + e*lh) + ux*sv, nY*sd*(dd + e*lh) + uy*sv, false])))); // moved away: leader
             return out; }}); }
@@ -2262,7 +2285,7 @@ function placeLinesAng(lines, cx, cy, ang, gap, ref, opts) {
   best = [best[0], best[1]];
   const c = [cx + best[0], cy + best[1]], bx = boxAt(c);
   chunks(c).forEach(b => labelBoxes.push(b));
-  if (ref) labelHits.push({ref, cur: best.slice(), box: bx, ang, cx: c[0], cy: c[1]});
+  if (ref) labelHits.push({ref, cur: best.slice(), box: bx, ang, cx: c[0], cy: c[1], rw: w, rh: h});
   if (opts && opts.leaderTo) drawLeader(opts, bx, tight, c);
   fctx.save();
   fctx.translate(c[0], c[1]); fctx.rotate(ang);
@@ -2330,7 +2353,7 @@ document.getElementById('begin-btn').onclick = () => {
   history = [];
   hideDesc = '';
   diversion = null;
-  setTrackDone(false);
+  setTrackDone(false, true);
   try {
     newLeg();
   } catch (e) {
@@ -2493,6 +2516,22 @@ document.getElementById('pdf-btn').onclick = () => {
   const dt = document.getElementById('pdf-date'); if (!dt.value) dt.value = new Date().toISOString().slice(0, 10);
   document.getElementById('pdf-modal').classList.add('show');
 };
+// V871_MENU_PDF: Menu > PDF (only after the track has passed Finish). Unchanged since the last PDF -> straight to View/Send.
+// Edited since Finish -> the Finish checks run again; if they pass, the PDF is rebuilt from the current track.
+function pdfTrackSig() { return JSON.stringify({level, legs, hideDesc, lic: licenseText()}); }
+function menuPdf() {
+  if (!finishedOnce) return alert('Finish the track first');
+  if (!trackDone) {
+    const problems = rulesProblems();
+    if (problems.length) { alert('The track was changed after Finish and fails the Finish checks:\n\n' + problems.join('\n') + '\n\nFix these, then tap PDF again.'); return; }
+    setTrackDone(true);
+  }
+  const L = window.lastPdf;
+  if (L && L.sig === pdfTrackSig()) { document.getElementById('pdfready-name').textContent = L.name; document.getElementById('pdfready-modal').classList.add('show'); return; }
+  window.lastPdf = null;
+  document.getElementById('pdf-btn').onclick(); // names/date form -> Make PDF builds from the current track -> View/Send
+}
+document.getElementById('menu-pdf-btn').onclick = menuPdf;
 document.getElementById('pdf-cancel').onclick = () => document.getElementById('pdf-modal').classList.remove('show');
 document.getElementById('pdf-make').onclick = async () => {
   const info = {};
@@ -2503,7 +2542,7 @@ document.getElementById('pdf-make').onclick = async () => {
   const blob = makeTrackPdf(info);
   const name = 'Tracking-TD' + level + (info.dog ? '-' + info.dog.replace(/[^\w-]+/g, '_') : '') + (dv ? '-' + dv : '') + '.pdf';
   // v8.2 PDF_VIEW_SEND: offer View or Send once the PDF is made
-  window.lastPdf = {blob, name};
+  window.lastPdf = {blob, name, sig: pdfTrackSig()}; // V871_MENU_PDF
   document.getElementById('pdfready-name').textContent = name;
   document.getElementById('pdfready-modal').classList.add('show');
 };
@@ -2590,7 +2629,7 @@ document.getElementById('new-track').onclick = () => {
   } catch (e) { if (!confirm('Could not save (' + e.message + '). Start new anyway?')) return; }
   localStorage.removeItem('tracking-autosave');
   legs = []; currentLeg = null; articlesPlaced = 0; crossTracksPlaced = 0; history = []; hideDesc = ''; diversion = null;
-  setTrackDone(false);
+  setTrackDone(false, true);
   document.getElementById('fullmap').classList.remove('show');
   document.getElementById('start-page').style.display = 'flex';
 };
@@ -2604,7 +2643,7 @@ if (restored && restored.legs && restored.legs.length) {
   document.getElementById('start-page').style.display = 'none';
   render();
   saveState();
-  setTrackDone(!!restored.trackDone);
+  setTrackDone(!!restored.trackDone, true);
   const tm = new Date(restored.t).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
   setTimeout(() => { statusEl.innerHTML = 'Restored saved track (' + tm + ')<br>' + statusEl.innerHTML; }, 50);
 } else {
@@ -2693,7 +2732,7 @@ function loadSaved(i) {
     document.getElementById('load-modal').classList.remove('show');
     document.getElementById('fullmap').classList.remove('show');
     document.getElementById('start-page').style.display = 'none';
-    render(); saveState(); setTrackDone(!!t.trackDone); drawMud(); autoSave();
+    render(); saveState(); setTrackDone(!!t.trackDone, true); drawMud(); autoSave();
   } catch (e) { alert('Could not load: ' + e.message); }
 }
 document.getElementById('load-btn').onclick = openLoad;
@@ -2703,7 +2742,7 @@ document.getElementById('new-nosave').onclick = () => {
   if (legs.length && !confirm('Start a new track WITHOUT saving this one? It will be lost.')) return;
   localStorage.removeItem('tracking-autosave');
   legs = []; currentLeg = null; articlesPlaced = 0; crossTracksPlaced = 0; history = []; hideDesc = ''; diversion = null; selectedFlag = null;
-  setTrackDone(false);
+  setTrackDone(false, true);
   document.getElementById('fullmap').classList.remove('show');
   document.getElementById('start-page').style.display = 'flex';
 };
@@ -2713,7 +2752,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.7';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.7.1';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
