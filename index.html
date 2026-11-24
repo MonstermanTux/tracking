@@ -224,7 +224,7 @@ html.day .lic-about a { color:#0B5560; }
 <body>
 <div id="start-page" style="position:fixed;inset:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;">
   <h1 style="color:#ffeb3b;margin-bottom:4px;">Tracking</h1>
-  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v8.7.1 · © All Breeds Tracking Club</div>
+  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v8.8 · © All Breeds Tracking Club</div>
   <button id="start-badge" type="button" style="font-size:13px;padding:6px 12px;margin-bottom:12px;"></button>
   <p style="margin-bottom:16px;">Select track level</p>
   <select id="start-level" style="font-size:20px;padding:12px;margin-bottom:20px;">
@@ -318,7 +318,7 @@ html.day .lic-about a { color:#0B5560; }
 </div>
 <div id="about-modal" class="modal" style="z-index:460;"><!-- V87_LICENCE: Menu > About -->
   <div class="modal-content">
-    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v8.7.1</h3>
+    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v8.8</h3>
     <div id="about-lic" style="font-size:14px;"></div>
     <div class="lic-about">© All Breeds Tracking Club.<br>Unlock codes: email the secretary at <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20unlock%20code">trackingapp.zrphg@simplelogin.com</a><br>Suggestions: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20suggestion">trackingapp.zrphg@simplelogin.com</a><br>Donations to the club equipment fund: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Club%20equipment%20fund%20donation">contact us</a></div>
     <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button id="about-close" type="button">Close</button></div>
@@ -362,6 +362,7 @@ html.day .lic-about a { color:#0B5560; }
     <label>Judge<br><input id="pdf-judge" style="width:100%"></label><br>
     <label>Steward<br><input id="pdf-steward" style="width:100%"></label><br>
     <label>Date<br><input id="pdf-date" type="date" style="width:100%"></label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:8px;"><input id="pdf-highlight" type="checkbox" style="width:22px;height:22px;"> Highlight</label><!-- V88_HIGHLIGHT_TOGGLE -->
     <div style="margin-top:10px; display:flex; gap:8px; justify-content:flex-end;">
       <button id="pdf-cancel" type="button">Cancel</button>
       <button id="pdf-make" type="button">Make PDF</button>
@@ -1063,6 +1064,7 @@ function placeArticle(flagIndex, desc, atFlag, onLeg) {
   if (articlesPlaced >= (R(level).articles || 0)) return alert('Article quota reached');
   const artErr = articleCheck(lg, flagIndex, !!atFlag);
   if (artErr) return alert(artErr);
+  if (lg.flags[flagIndex] && lg.flags[flagIndex].isStart && lg.flags[flagIndex].article) return alert('The start article cannot be replaced or deleted'); // V88_START_ARTICLE_NO_DELETE
   saveState();
   const label = 'A' + (articlesPlaced + 1); // A0 = start article (not counted)
   lg.flags[flagIndex].article = {desc: label + ': ' + desc, label, atFlag: !!atFlag, gps: null};
@@ -1157,7 +1159,7 @@ function render() {
     const ab = ban.querySelector('#chip-art-before'), aa = ban.querySelector('#chip-art-at');
     if (ab) ab.onclick = () => { const i = currentLeg.flags.indexOf(sf); openDesc('Article before this flag', d => placeArticle(i, d, false)); };
     const ad = ban.querySelector('#chip-art-del');
-    if (ad) ad.onclick = () => { saveState(); sf.article = null; relabelArticles(); render(); drawMud(); };
+    if (ad) ad.onclick = () => { if (sf.isStart) return; saveState(); sf.article = null; relabelArticles(); render(); drawMud(); }; // V88_START_ARTICLE_NO_DELETE
     if (aa) aa.onclick = () => { const i = currentLeg.flags.indexOf(sf); openDesc('Article at this flag', d => placeArticle(i, d, true)); };
   }
   if (currentLeg.start) {
@@ -1194,7 +1196,7 @@ function render() {
       ${bearingField}
       ${dirButtons}
       ${f.article
-        ? `<div class="article-mark edit-art" data-i="${i}">Article: ${f.article.desc} <button type="button" class="del-art" data-i="${i}">✕ delete</button></div>`
+        ? `<div class="article-mark edit-art" data-i="${i}">Article: ${f.article.desc}${f.isStart ? '' : ` <button type="button" class="del-art" data-i="${i}">✕ delete</button>`}</div>` /* V88_START_ARTICLE_NO_DELETE */
         : artQuotaFull() ? `<div class="muted art-quota-note" style="font-size:13px;color:#aaa;">${artQuotaNote()}</div>` /* ARTICLE_QUOTA_HIDE */
         : (() => { const okB = !f.isStart && !articleCheck(currentLeg, i, false), okA = !articleCheck(currentLeg, i, true); // CORNER_DELETE_SEL_FIX
             return (okB ? `<button type="button" class="add-art-before" data-i="${i}">+ Art before</button> ` : '') + (okA ? `<button type="button" class="add-art-at" data-i="${i}">+ Art at flag</button>` : '')
@@ -1233,6 +1235,7 @@ function render() {
       e.preventDefault();
       e.stopPropagation();
       const i = +btn.dataset.i;
+      if (currentLeg.flags[i] && currentLeg.flags[i].isStart) return; // V88_START_ARTICLE_NO_DELETE: the Start article can never be deleted
       if (currentLeg.flags[i] && currentLeg.flags[i].article) {
         saveState();
         const wasStart = currentLeg.flags[i].isStart;
@@ -2386,6 +2389,31 @@ function bindButtons() {
     };
   }
 }
+// V88_ARTICLE_HIGHLIGHT_SWIPE: deterministic "hand-done" swipe (same track = same swipes on every export)
+function hlRand(seed) { let h = 2166136261; for (const ch of String(seed)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return () => { h += 0x6D2B79F5; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function highlightSwipe(g, cx, cy, R, seed) {
+  const rnd = hlRand('swipe:' + seed), rr = (a, b) => a + (b - a) * rnd();
+  const ang = rr(-0.30, 0.12) + (rnd() < 0.5 ? 0 : -0.08); // a slightly tilted, right-handed swipe
+  const len = R * rr(3.3, 4.0), wid = R * rr(1.45, 1.7), off = R * rr(-0.25, 0.25); // centred on the ring, a little off-centre
+  const ux = Math.cos(ang), uy = Math.sin(ang), nx = -uy, ny = ux, N = 14;
+  const x0 = cx - ux * len * rr(0.42, 0.52) + nx * off * 0.3, y0 = cy - uy * len * rr(0.42, 0.52) + ny * off * 0.3;
+  const top = [], bot = [], ph1 = rr(0, 6.3), ph2 = rr(0, 6.3), bow = R * rr(-0.25, 0.25);
+  for (let i = 0; i <= N; i++) { const t = i / N, along = len * t, bend = bow * Math.sin(Math.PI * t);
+    const w = wid * (0.5 + 0.06 * Math.sin(ph1 + t * 7.3) + 0.04 * Math.sin(ph2 + t * 13.1)) * (t < 0.08 ? 0.86 + t * 1.7 : 1) * (t > 0.9 ? 1 - (t - 0.9) * 1.6 : 1);
+    const bx = x0 + ux * along + nx * bend, by = y0 + uy * along + ny * bend;
+    top.push([bx + nx * w + ux * R * 0.02 * Math.sin(ph1 + i), by + ny * w]); bot.push([bx - nx * w * rr(0.92, 1.05), by - ny * w * rr(0.92, 1.05)]); }
+  const shape = (pts1, pts2) => { g.beginPath(); g.moveTo(pts1[0][0], pts1[0][1]); pts1.forEach(p => g.lineTo(p[0], p[1]));
+    // chisel-tip ends: slanted, not round
+    pts2.slice().reverse().forEach(p => g.lineTo(p[0], p[1])); g.closePath(); g.fill(); };
+  g.save(); g.globalCompositeOperation = 'multiply';
+  g.fillStyle = 'rgba(255, 230, 40, 0.52)'; shape(top, bot);
+  // a second, thinner pass over part of the length: the darker overlap a real highlighter leaves
+  const a = Math.floor(rr(1, 4)), b = Math.floor(rr(9, 13)); g.fillStyle = 'rgba(255, 224, 30, 0.22)';
+  shape(top.slice(a, b + 1).map((p, i) => [p[0] - nx * wid * 0.12, p[1] - ny * wid * 0.12]), bot.slice(a, b + 1).map(p => [p[0] + nx * wid * 0.08, p[1] + ny * wid * 0.08]));
+  g.restore();
+  return {cx, cy, R, ang, len, wid};
+}
 // ===== PDF export (A4, monochrome) =====
 function makeTrackPdf(info) {
   // pick portrait or landscape A4, whichever shows the track bigger
@@ -2475,6 +2503,19 @@ function makeTrackPdf(info) {
   fctx.putImageData(img, 0, 0);
   if (rot) { g.save(); g.translate(M + 6, MY + 6 + IH); g.rotate(-Math.PI / 2); g.drawImage(fullcanvas, 0, 0, MW, MH, 0, 0, IH, IW); g.restore(); } // PDF_PORTRAIT_MAP_ROTATE
   else g.drawImage(fullcanvas, 0, 0, MW, MH, M + 6, MY + 6, IW, IH);
+  // V88_ARTICLE_HIGHLIGHT_SWIPE: a hand-done yellow highlighter swipe over each article ring. Drawn with 'multiply', so it
+  // sits beneath the black ink (the ring and its label stay fully black) and prints as a light grey on black-and-white printers.
+  window.lastPdfSwipes = [];
+  if (info.highlight === undefined ? pdfHighlightOn() : !!info.highlight) {
+    const toPage = (x, y) => { const X = x * mapScale + mapTx, Y = y * mapScale + mapTy;
+      if (rot) { const u = X * IH / MW, v = Y * IW / MH; return [M + 6 + v, MY + 6 + IH - u]; }
+      return [M + 6 + X * IW / MW, MY + 6 + Y * IH / MH]; };
+    const kPage = (rot ? IH : IW) / MW; // page px per map-canvas px
+    (artRings || []).forEach((z, n) => {
+      const [px, py] = toPage(z.cx, z.cy), R = Math.max(8, z.r * mapScale * kPage);
+      window.lastPdfSwipes.push(highlightSwipe(g, px, py, R, String((z.p && z.p.artLabel) || '') + '|' + n));
+    });
+  }
   if (!isUnlocked()) { // v7.8 TEASER_TD3_LOCK watermark (free version only)
     g.save(); g.font = 'italic 18px sans-serif'; g.fillStyle = '#666'; g.textAlign = 'right';
     g.fillText('Free version – donation to the tracking club unlocks full', PW - M, PH - 12); g.restore();
@@ -2510,15 +2551,19 @@ function makeTrackPdf(info) {
   for (let i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 255;
   return new Blob([bytes], { type: 'application/pdf' });
 }
+// V88_HIGHLIGHT_TOGGLE: highlighter swipes on PDF articles, saved like the other PDF options; default ON
+const PDF_HL_KEY = 'pdf-highlight';
+function pdfHighlightOn() { try { return localStorage.getItem(PDF_HL_KEY) !== '0'; } catch (e) { return true; } }
 document.getElementById('pdf-btn').onclick = () => {
   if (!trackDone) return alert('Finish the track first');
+  document.getElementById('pdf-highlight').checked = pdfHighlightOn();
   ['dog','comp','judge','steward'].forEach(k => { document.getElementById('pdf-' + k).value = localStorage.getItem('pdf-' + k) || ''; });
   const dt = document.getElementById('pdf-date'); if (!dt.value) dt.value = new Date().toISOString().slice(0, 10);
   document.getElementById('pdf-modal').classList.add('show');
 };
 // V871_MENU_PDF: Menu > PDF (only after the track has passed Finish). Unchanged since the last PDF -> straight to View/Send.
 // Edited since Finish -> the Finish checks run again; if they pass, the PDF is rebuilt from the current track.
-function pdfTrackSig() { return JSON.stringify({level, legs, hideDesc, lic: licenseText()}); }
+function pdfTrackSig() { return JSON.stringify({level, legs, hideDesc, lic: licenseText(), hl: pdfHighlightOn()}); }
 function menuPdf() {
   if (!finishedOnce) return alert('Finish the track first');
   if (!trackDone) {
@@ -2538,6 +2583,7 @@ document.getElementById('pdf-make').onclick = async () => {
   ['dog','comp','judge','steward'].forEach(k => { info[k] = document.getElementById('pdf-' + k).value.trim(); localStorage.setItem('pdf-' + k, info[k]); });
   const dv = document.getElementById('pdf-date').value;
   info.date = dv ? dv.split('-').reverse().join('/') : '';
+  info.highlight = document.getElementById('pdf-highlight').checked; localStorage.setItem(PDF_HL_KEY, info.highlight ? '1' : '0'); // V88_HIGHLIGHT_TOGGLE
   document.getElementById('pdf-modal').classList.remove('show');
   const blob = makeTrackPdf(info);
   const name = 'Tracking-TD' + level + (info.dog ? '-' + info.dog.replace(/[^\w-]+/g, '_') : '') + (dv ? '-' + dv : '') + '.pdf';
@@ -2752,7 +2798,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.7.1';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.8';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
@@ -3192,7 +3238,7 @@ function feAct(act, btn) {
       const err = articleCheck(leg, fi, at); if (err) return alert(err);
       saveState(); f.article.atFlag = at; render(); drawMud(); return;
     }
-    case 'delart': return feDel('Article ' + (f.article ? f.article.label : ''), () => { f.article = null; relabelArticles(); });
+    case 'delart': if (f.isStart) return; return feDel('Article ' + (f.article ? f.article.label : ''), () => { f.article = null; relabelArticles(); }); // V88_START_ARTICLE_NO_DELETE
     case 'addart-at': return openDesc('Article at this flag', d => placeArticle(fi, d, true, leg)); // EDIT_SCREEN_LEG_FIX
     case 'addart-before': return openDesc('Article before this flag', d => placeArticle(fi, d, false, leg));
     case 'dict-art': { const a = f.article; if (!a) return; const pre = a.label + ': '; const cur = a.desc.startsWith(pre) ? a.desc.slice(pre.length) : a.desc;
