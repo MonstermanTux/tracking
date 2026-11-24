@@ -224,7 +224,7 @@ html.day .lic-about a { color:#0B5560; }
 <body>
 <div id="start-page" style="position:fixed;inset:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;">
   <h1 style="color:#ffeb3b;margin-bottom:4px;">Tracking</h1>
-  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v8.8 · © All Breeds Tracking Club</div>
+  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v8.9 · © All Breeds Tracking Club</div>
   <button id="start-badge" type="button" style="font-size:13px;padding:6px 12px;margin-bottom:12px;"></button>
   <p style="margin-bottom:16px;">Select track level</p>
   <select id="start-level" style="font-size:20px;padding:12px;margin-bottom:20px;">
@@ -318,7 +318,7 @@ html.day .lic-about a { color:#0B5560; }
 </div>
 <div id="about-modal" class="modal" style="z-index:460;"><!-- V87_LICENCE: Menu > About -->
   <div class="modal-content">
-    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v8.8</h3>
+    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v8.9</h3>
     <div id="about-lic" style="font-size:14px;"></div>
     <div class="lic-about">© All Breeds Tracking Club.<br>Unlock codes: email the secretary at <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20unlock%20code">trackingapp.zrphg@simplelogin.com</a><br>Suggestions: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20suggestion">trackingapp.zrphg@simplelogin.com</a><br>Donations to the club equipment fund: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Club%20equipment%20fund%20donation">contact us</a></div>
     <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button id="about-close" type="button">Close</button></div>
@@ -362,7 +362,10 @@ html.day .lic-about a { color:#0B5560; }
     <label>Judge<br><input id="pdf-judge" style="width:100%"></label><br>
     <label>Steward<br><input id="pdf-steward" style="width:100%"></label><br>
     <label>Date<br><input id="pdf-date" type="date" style="width:100%"></label>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:8px;"><input id="pdf-highlight" type="checkbox" style="width:22px;height:22px;"> Highlight</label><!-- V88_HIGHLIGHT_TOGGLE -->
+    <div id="pdf-colour-row" role="radiogroup" aria-label="PDF colour" style="display:flex;gap:8px;margin-top:10px;"><!-- V89_PDF_COLOUR_MODE -->
+      <label class="pdf-cm" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:2px solid #888;border-radius:10px;padding:6px 8px;cursor:pointer;font-weight:bold;"><input type="radio" name="pdf-colour" id="pdf-colour-colour" value="colour" style="width:24px;height:24px;margin:0;"> Colour</label>
+      <label class="pdf-cm" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:2px solid #888;border-radius:10px;padding:6px 8px;cursor:pointer;font-weight:bold;"><input type="radio" name="pdf-colour" id="pdf-colour-mono" value="mono" style="width:24px;height:24px;margin:0;"> Monochrome</label>
+    </div>
     <div style="margin-top:10px; display:flex; gap:8px; justify-content:flex-end;">
       <button id="pdf-cancel" type="button">Cancel</button>
       <button id="pdf-make" type="button">Make PDF</button>
@@ -394,8 +397,16 @@ const fctx = fullcanvas.getContext('2d');
 const DAY_KEY = 'tracking-day';
 let dayMode = false;
 let printMode = false;
+let pdfColourPrint = false; // V89_PDF_COLOUR_MODE: true only while the colour PDF map is drawn
+// V89_PDF_COLOUR_MODE: on the colour PDF every map colour is first turned into the same grey ink it prints as in monochrome;
+// only the track line, the Start and the article rings get pure key colours, which the PDF swaps for the print palette
+const PDF_INK = {track: [0x1F, 0x3A, 0x93], start: [0x1E, 0x84, 0x49], ring: [0xC0, 0x39, 0x2B]};
+function pdfNeutral(c) { if (c[0] !== '#') return c; let h = c.slice(1); if (h.length === 3) h = h.split('').map(x => x + x).join('');
+  const m = Math.max(parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)); const x = m.toString(16).padStart(2, '0'); return '#' + x + x + x; }
 try { dayMode = localStorage.getItem(DAY_KEY) === '1'; } catch (e) { dayMode = false; }
 function mapCols() {
+  if (printMode && pdfColourPrint) { pdfColourPrint = false; const N = mapCols(); pdfColourPrint = true; const o = {};
+    Object.keys(N).forEach(k => o[k] = pdfNeutral(N[k])); o.kTrack = '#0000ff'; o.kStart = '#00ff00'; o.kRing = '#ff0000'; return o; } // V89_PDF_COLOUR_MODE
   if (printMode || !dayMode) return {
     bg:'#000', mudBg:'#111', track:'#ffeb3b', ct:'#00e5ff', ctFill:'#000', mudCtFill:'#111',
     flag:'#ffeb3b', art:'#ff5252', text:'#fff', artDot:'#fff', artRing:'#fff', artLabFill:'#000',
@@ -1524,6 +1535,9 @@ function drawFullMap(pw, ph) {
   }
   // collision boxes: track dots + line samples, then each label as placed
   labelBoxes = []; labelHits = []; aimHits = []; artRings = []; crossTags = []; ctSegs = []; window.__lbl = []; // V87_LABELS stats
+  window.__endPt = points.length > 1 ? {x: points[points.length - 1].x, y: points[points.length - 1].y} : null; // V89_END_FLAG_CHEQUERED: the track's end point
+  if (printMode && window.pdfMmPx && window.__endPt && !window.__v89NoEndFlagBox) { // keep labels off the ~8 mm finish-flag symbol (drawn upright in map space)
+    const mm = window.pdfMmPx / mapScale; const ex = window.__endPt.x, ey = window.__endPt.y; const k = END_FLAG_S_MM * mm; labelBoxes.push({x: ex - 0.74 * k, y: ey - 0.77 * k, w: 1.48 * k, h: 0.6 * k}, {x: ex - 0.2 * k, y: ey - 0.2 * k, w: 0.4 * k, h: 0.56 * k}); } // flags band + crossed poles
   window.__lineSegs = []; // V871_LABEL_CLEAR: drawn lines, for the label checks
   const L0 = legs[0], LN = legs[legs.length - 1];
   points.forEach((p, k) => {
@@ -1540,9 +1554,11 @@ function drawFullMap(pw, ph) {
   const TLW = (printMode && window.pdfMmPx) ? 0.3 * window.pdfMmPx / mapScale : 3 / mapScale; window.lastTrackLW = TLW * mapScale;
   fctx.lineWidth = TLW;
   fctx.font = (14 / mapScale) + 'px sans-serif';
+  if (C.kTrack) fctx.strokeStyle = C.kTrack; // V89_PDF_COLOUR_MODE: track line
   fctx.beginPath();
   points.forEach((p,i) => { if(i===0) fctx.moveTo(p.x,p.y); else fctx.lineTo(p.x,p.y); });
   fctx.stroke();
+  fctx.strokeStyle = C.track;
   // V871_LABEL_CLEAR: reserve the cross-track lines (and below, the gate and diversion lines) as no-go boxes BEFORE any
   // label is placed, so early labels (HIDE, START, gate, diversion) can no longer land on a line drawn later
   const lineBoxes = (x1, y1, x2, y2, hw) => { const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / (6/mapScale)));
@@ -1588,7 +1604,7 @@ function drawFullMap(pw, ph) {
     const baseAng = Math.atan2(n.y - s.y, n.x - s.x);
     const gateAng = baseAng + Math.PI/2;
     const glen = 20 / mapScale;
-    fctx.strokeStyle = C.gate;
+    fctx.strokeStyle = C.kStart || C.gate; // V89_PDF_COLOUR_MODE: start gate
     fctx.lineWidth = 4 / mapScale;
     fctx.beginPath();
     fctx.moveTo(s.x - Math.cos(gateAng)*glen, s.y - Math.sin(gateAng)*glen);
@@ -1644,8 +1660,9 @@ function drawFullMap(pw, ph) {
   const arrowTris = []; // v8.2.1 ARROW_MIN_LINEWIDTH: arrows are composited after the loop, on top of the line, behind icons
   points.forEach((p, idx) => {
     const newAim = !!(p.bearing && p.bearing !== p.prevBearing && p.fo);
-    fctx.fillStyle = C.flag;
-    fctx.beginPath(); fctx.arc(p.x, p.y, 7/mapScale, 0, Math.PI*2); fctx.fill();
+    fctx.fillStyle = (C.kStart && idx === 0) ? C.kStart : C.flag; // V89_PDF_COLOUR_MODE: start flag
+    const endNoDot = printMode && idx > 0 && idx === points.length - 1 && !window.__v89NoEndFlagBox; // V89_END_FLAG_CHEQUERED: the crossed flags replace the end dot on the PDF
+    if (!endNoDot) { fctx.beginPath(); fctx.arc(p.x, p.y, 7/mapScale, 0, Math.PI*2); fctx.fill(); }
     let ringR = 0; // v7.6: radius of an article ring sitting on this flag (aim arrow base touches it)
     if (p.article) {
       // v7.6 article rings: label (A0, A1...) inside a white ring, description adjacent
@@ -1685,14 +1702,18 @@ function drawFullMap(pw, ph) {
         }
       }
       // the ring itself, filled with map background
-      fctx.fillStyle = C.artLabFill; fctx.strokeStyle = C.artRing; fctx.lineWidth = 2.5 / mapScale;
+      fctx.fillStyle = C.artLabFill; fctx.strokeStyle = C.kRing ? ((p.fo && p.fo.isStart) ? C.kStart : C.kRing) : C.artRing; fctx.lineWidth = 2.5 / mapScale; // V89_PDF_COLOUR_MODE: ring (start article = Start green)
       fctx.beginPath(); fctx.arc(cx, cy, RR, 0, Math.PI*2); fctx.fill(); fctx.stroke(); // art-ring
       fctx.fillStyle = C.text; fctx.font = 'bold ' + (12/mapScale) + 'px sans-serif';
       fctx.textAlign = 'center'; fctx.textBaseline = 'middle'; fctx.fillText(lab, cx, cy);
       fctx.textAlign = 'left'; fctx.textBaseline = 'alphabetic';
       const ringBox = {x: cx - RR - 2/mapScale, y: cy - RR - 2/mapScale, w: 2*RR + 4/mapScale, h: 2*RR + 4/mapScale};
       labelBoxes.push(ringBox);
-      artRings.push({p, cx, cy, r: RR, atFlag: !useMid});
+      // V89_SWIPE_PERPENDICULAR: the leg arriving at this article (else the leaving leg, else none)
+      let legDir = null; { const pv = points[idx-1], nx = points[idx+1];
+        if (pv && Math.hypot(p.x - pv.x, p.y - pv.y) > 1e-6) legDir = {dx: p.x - pv.x, dy: p.y - pv.y, kind: 'in'};
+        else if (nx && Math.hypot(nx.x - p.x, nx.y - p.y) > 1e-6) legDir = {dx: nx.x - p.x, dy: nx.y - p.y, kind: 'out'}; }
+      artRings.push({p, cx, cy, r: RR, atFlag: !useMid, legDir});
       if (!useMid) ringR = RR;
       fctx.font = 'bold ' + (13/mapScale) + 'px sans-serif';
       const off = RR + 6 / mapScale;
@@ -2392,9 +2413,13 @@ function bindButtons() {
 // V88_ARTICLE_HIGHLIGHT_SWIPE: deterministic "hand-done" swipe (same track = same swipes on every export)
 function hlRand(seed) { let h = 2166136261; for (const ch of String(seed)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
   return () => { h += 0x6D2B79F5; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-function highlightSwipe(g, cx, cy, R, seed) {
+function highlightSwipe(g, cx, cy, R, seed, opt) {
+  opt = opt || {};
   const rnd = hlRand('swipe:' + seed), rr = (a, b) => a + (b - a) * rnd();
-  const ang = rr(-0.30, 0.12) + (rnd() < 0.5 ? 0 : -0.08); // a slightly tilted, right-handed swipe
+  const ang0 = rr(-0.30, 0.12) + (rnd() < 0.5 ? 0 : -0.08);
+  // V89_SWIPE_PERPENDICULAR: long axis square to the leg (page angle opt.legAng), within ~2 deg of hand wobble; horizontal if no leg
+  let ang = (opt.legAng == null ? 0 : opt.legAng + Math.PI / 2) + (ang0 + 0.13) * 0.12;
+  while (ang > Math.PI / 2) ang -= Math.PI; while (ang <= -Math.PI / 2) ang += Math.PI; // reads left to right
   const len = R * rr(3.3, 4.0), wid = R * rr(1.45, 1.7), off = R * rr(-0.25, 0.25); // centred on the ring, a little off-centre
   const ux = Math.cos(ang), uy = Math.sin(ang), nx = -uy, ny = ux, N = 14;
   const x0 = cx - ux * len * rr(0.42, 0.52) + nx * off * 0.3, y0 = cy - uy * len * rr(0.42, 0.52) + ny * off * 0.3;
@@ -2407,12 +2432,41 @@ function highlightSwipe(g, cx, cy, R, seed) {
     // chisel-tip ends: slanted, not round
     pts2.slice().reverse().forEach(p => g.lineTo(p[0], p[1])); g.closePath(); g.fill(); };
   g.save(); g.globalCompositeOperation = 'multiply';
-  g.fillStyle = 'rgba(255, 230, 40, 0.52)'; shape(top, bot);
+  const mono = opt.mode === 'mono'; // V89_PDF_COLOUR_MODE: grey of the same lightness as the v8.8 swipe, or soft yellow #FFE14D
+  g.fillStyle = mono ? 'rgba(216, 216, 216, 0.52)' : 'rgba(255, 225, 77, 0.85)'; shape(top, bot);
   // a second, thinner pass over part of the length: the darker overlap a real highlighter leaves
-  const a = Math.floor(rr(1, 4)), b = Math.floor(rr(9, 13)); g.fillStyle = 'rgba(255, 224, 30, 0.22)';
+  const a = Math.floor(rr(1, 4)), b = Math.floor(rr(9, 13)); g.fillStyle = mono ? 'rgba(211, 211, 211, 0.22)' : 'rgba(255, 225, 77, 0.3)';
   shape(top.slice(a, b + 1).map((p, i) => [p[0] - nx * wid * 0.12, p[1] - ny * wid * 0.12]), bot.slice(a, b + 1).map(p => [p[0] + nx * wid * 0.08, p[1] + ny * wid * 0.08]));
   g.restore();
-  return {cx, cy, R, ang, len, wid};
+  return {cx, cy, R, ang, len, wid, legAng: opt.legAng == null ? null : opt.legAng, mode: mono ? 'mono' : 'colour'};
+}
+// V89_END_FLAG_CHEQUERED: two crossed chequered (finish) flags at the END FLAG, fixed paper size S page px tall,
+// the poles crossing just above the end point; turned with the map (rot) so it stands upright when the map is read
+const END_FLAG_S_MM = 10.8; // symbol scale: ~11 mm tall overall on paper (pole feet to flag tops)
+function drawEndFlag(g, x, y, S, rot) {
+  g.save(); g.translate(x, y); if (rot) g.rotate(-Math.PI / 2); // poles cross exactly on the end point
+  const poleCol = '#333', lw = Math.max(1.5, 0.055 * S);
+  const pole = (sx) => { // sx = -1: pole leaning left (flag flies out to the left); +1 mirror
+    const tx = sx * 0.24 * S, ty = -0.62 * S, bx = -tx * 0.5, by = -ty * 0.5; // straight pole through the origin: the two poles cross exactly on the end point // bottom -> top, crossing at the origin
+    return {bx, by, tx, ty}; };
+  const flag = (sx, P) => { // chequered cloth hanging from the pole top, flying outward with a gentle wave
+    const W = 0.5 * S, H = 0.36 * S, NX = 4, NY = 3, ux = sx, wav = 0.05 * S;
+    const pt = (u, v) => [P.tx + ux * u * W, P.ty + v * H + Math.sin(u * Math.PI * 1.6) * wav + u * 0.06 * S];
+    for (let i = 0; i < NX; i++) for (let j = 0; j < NY; j++) {
+      const a = pt(i / NX, j / NY), b = pt((i + 1) / NX, j / NY), c = pt((i + 1) / NX, (j + 1) / NY), d = pt(i / NX, (j + 1) / NY);
+      g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath();
+      g.fillStyle = (i + j) % 2 ? '#fff' : '#000'; g.fill(); }
+    g.beginPath(); for (let k = 0; k <= 12; k++) { const p = pt(k / 12, 0); k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }
+    for (let k = 0; k <= 12; k++) { const p = pt(1, k / 12); g.lineTo(p[0], p[1]); }
+    for (let k = 12; k >= 0; k--) { const p = pt(k / 12, 1); g.lineTo(p[0], p[1]); }
+    g.closePath(); g.strokeStyle = '#000'; g.lineWidth = Math.max(1, 0.025 * S); g.stroke(); };
+  const A = pole(-1), B = pole(1);
+  [A, B].forEach((P, k) => { flag(k ? 1 : -1, P); });
+  g.lineCap = 'round'; g.strokeStyle = poleCol; g.lineWidth = lw;
+  [A, B].forEach(P => { g.beginPath(); g.moveTo(P.bx, P.by); g.lineTo(P.tx, P.ty); g.stroke();
+    g.beginPath(); g.arc(P.tx, P.ty, lw * 0.9, 0, Math.PI * 2); g.fillStyle = poleCol; g.fill(); }); // pole knobs
+  g.restore();
+  return {x, y, S, rot: !!rot};
 }
 // ===== PDF export (A4, monochrome) =====
 function makeTrackPdf(info) {
@@ -2474,7 +2528,8 @@ function makeTrackPdf(info) {
     g.font = '20px sans-serif'; legLines.forEach((t, k) => g.fillText(t, M + 4, PH - M - legendH + 30 + (k + 1) * LEG_LH)); // ct-legend
   }
   // draw map at fixed size, unzoomed, then convert to black ink on white
-  const sv = [mapScale, mapTx, mapTy]; mapScale = 1; mapTx = 0; mapTy = 0; printMode = true;
+  const cmode = info.colour === 'mono' || info.colour === 'colour' ? info.colour : pdfColourMode(); window.lastPdfMode = cmode; // V89_PDF_COLOUR_MODE
+  const sv = [mapScale, mapTx, mapTy]; mapScale = 1; mapTx = 0; mapTy = 0; printMode = true; pdfColourPrint = cmode === 'colour';
   const IW = PW - 2 * M - 12, IH = PH - MY - M - 12 - legendH;
   // v8.1 PDF_FIT_LANDSCAPE: draw at a finer resolution (text ~1.8x on paper instead of ~2.4x) and fit the whole drawing,
   // labels included, into the map box: grow the track to use the space, shrink it if any label would run off the page
@@ -2496,26 +2551,41 @@ function makeTrackPdf(info) {
   }
   window.lastPdfFit = {land, rot, BW, BH, IW, IH, MW, MH, PAD, X0: fitM.X0, Y0: fitM.Y0, X1: fitM.X1, Y1: fitM.Y1, scale: mapScale};
   const img = fctx.getImageData(0, 0, MW, MH), d = img.data;
+  if (cmode === 'colour') { // V89_PDF_COLOUR_MODE: grey = black ink as before; pure R/G/B keys = ring / start / track inks
+    const K = [PDF_INK.ring, PDF_INK.start, PDF_INK.track];
+    for (let i = 0; i < d.length; i += 4) {
+      const w = Math.min(d[i], d[i+1], d[i+2]), kc = [d[i] - w, d[i+1] - w, d[i+2] - w];
+      for (let c = 0; c < 3; c++) { let v = 1 - w / 255; for (let k = 0; k < 3; k++) if (kc[k]) v *= 1 - kc[k] / 255 * (1 - K[k][c] / 255); d[i + c] = Math.round(255 * v); }
+      d[i+3] = 255;
+    }
+  } else
   for (let i = 0; i < d.length; i += 4) {
     const ink = Math.max(d[i], d[i+1], d[i+2]);
     const v = 255 - ink; d[i] = d[i+1] = d[i+2] = v; d[i+3] = 255;
   }
+  pdfColourPrint = false;
   fctx.putImageData(img, 0, 0);
   if (rot) { g.save(); g.translate(M + 6, MY + 6 + IH); g.rotate(-Math.PI / 2); g.drawImage(fullcanvas, 0, 0, MW, MH, 0, 0, IH, IW); g.restore(); } // PDF_PORTRAIT_MAP_ROTATE
   else g.drawImage(fullcanvas, 0, 0, MW, MH, M + 6, MY + 6, IW, IH);
   // V88_ARTICLE_HIGHLIGHT_SWIPE: a hand-done yellow highlighter swipe over each article ring. Drawn with 'multiply', so it
   // sits beneath the black ink (the ring and its label stay fully black) and prints as a light grey on black-and-white printers.
   window.lastPdfSwipes = [];
-  if (info.highlight === undefined ? pdfHighlightOn() : !!info.highlight) {
+  { // V89: swipes always drawn (no off option)
     const toPage = (x, y) => { const X = x * mapScale + mapTx, Y = y * mapScale + mapTy;
       if (rot) { const u = X * IH / MW, v = Y * IW / MH; return [M + 6 + v, MY + 6 + IH - u]; }
       return [M + 6 + X * IW / MW, MY + 6 + Y * IH / MH]; };
     const kPage = (rot ? IH : IW) / MW; // page px per map-canvas px
     (artRings || []).forEach((z, n) => {
       const [px, py] = toPage(z.cx, z.cy), R = Math.max(8, z.r * mapScale * kPage);
-      window.lastPdfSwipes.push(highlightSwipe(g, px, py, R, String((z.p && z.p.artLabel) || '') + '|' + n));
+      let legAng = null; // V89_SWIPE_PERPENDICULAR: leg direction carried through the same map->page transform (incl. the 90 deg turn)
+      if (z.legDir) { const [qx, qy] = toPage(z.cx + z.legDir.dx, z.cy + z.legDir.dy); legAng = Math.atan2(qy - py, qx - px); }
+      window.lastPdfSwipes.push(highlightSwipe(g, px, py, R, String((z.p && z.p.artLabel) || '') + '|' + n, {legAng, mode: cmode}));
     });
   }
+  window.lastPdfEndFlag = null; // V89_END_FLAG_CHEQUERED: ~11 mm tall on paper whatever the map scale, same in Colour and Monochrome
+  if (window.__endPt) { const X = window.__endPt.x * mapScale + mapTx, Y = window.__endPt.y * mapScale + mapTy;
+    const ep = rot ? [M + 6 + Y * IW / MH, MY + 6 + IH - X * IH / MW] : [M + 6 + X * IW / MW, MY + 6 + Y * IH / MH];
+    window.lastPdfEndFlag = drawEndFlag(g, ep[0], ep[1], END_FLAG_S_MM * 150 / 25.4, rot); }
   if (!isUnlocked()) { // v7.8 TEASER_TD3_LOCK watermark (free version only)
     g.save(); g.font = 'italic 18px sans-serif'; g.fillStyle = '#666'; g.textAlign = 'right';
     g.fillText('Free version – donation to the tracking club unlocks full', PW - M, PH - 12); g.restore();
@@ -2525,7 +2595,7 @@ function makeTrackPdf(info) {
     const maxW = isUnlocked() ? PW - 2 * M : PW / 2 - M - 10; let t = ft;
     while (g.measureText(t).width > maxW && t.length > 10) t = t.slice(0, -2);
     g.fillText(t === ft ? t : t + '…', M, PH - 12); g.restore(); }
-  [mapScale, mapTx, mapTy] = sv; printMode = false;
+  [mapScale, mapTx, mapTy] = sv; printMode = false; pdfColourPrint = false;
   drawFullMap();
   // build PDF with embedded JPEG
   const jpg = atob(pc.toDataURL('image/jpeg', 0.92).split(',')[1]);
@@ -2551,19 +2621,26 @@ function makeTrackPdf(info) {
   for (let i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 255;
   return new Blob([bytes], { type: 'application/pdf' });
 }
-// V88_HIGHLIGHT_TOGGLE: highlighter swipes on PDF articles, saved like the other PDF options; default ON
-const PDF_HL_KEY = 'pdf-highlight';
-function pdfHighlightOn() { try { return localStorage.getItem(PDF_HL_KEY) !== '0'; } catch (e) { return true; } }
+// V89_PDF_COLOUR_MODE: Colour / Monochrome PDF, saved like the other PDF options; default Colour. Article highlight swipes
+// are always drawn (the v8.8 'Highlight' on/off checkbox and its 'pdf-highlight' key are retired)
+const PDF_CM_KEY = 'pdf-colour', PDF_HL_OLD_KEY = 'pdf-highlight';
+function pdfColourMode() { try { return localStorage.getItem(PDF_CM_KEY) === 'mono' ? 'mono' : 'colour'; } catch (e) { return 'colour'; } }
+function setPdfColourMode(m) { try { localStorage.setItem(PDF_CM_KEY, m === 'mono' ? 'mono' : 'colour'); } catch (e) {} }
+try { if (localStorage.getItem(PDF_HL_OLD_KEY) !== null) localStorage.removeItem(PDF_HL_OLD_KEY); } catch (e) {} // migrate: old on/off key no longer used
+function pdfCmShow() { document.querySelectorAll('#pdf-colour-row .pdf-cm').forEach(l => { const on = l.querySelector('input').checked;
+  l.style.borderColor = on ? '#ffeb3b' : '#888'; l.style.background = on ? 'rgba(255,235,59,0.15)' : 'transparent'; }); }
+document.querySelectorAll('#pdf-colour-row input').forEach(r => r.addEventListener('change', pdfCmShow));
+function pdfColourFromForm() { const m = document.getElementById('pdf-colour-mono'); return m && m.checked ? 'mono' : 'colour'; }
 document.getElementById('pdf-btn').onclick = () => {
   if (!trackDone) return alert('Finish the track first');
-  document.getElementById('pdf-highlight').checked = pdfHighlightOn();
+  { const m = pdfColourMode(); document.getElementById('pdf-colour-colour').checked = m === 'colour'; document.getElementById('pdf-colour-mono').checked = m === 'mono'; pdfCmShow(); }
   ['dog','comp','judge','steward'].forEach(k => { document.getElementById('pdf-' + k).value = localStorage.getItem('pdf-' + k) || ''; });
   const dt = document.getElementById('pdf-date'); if (!dt.value) dt.value = new Date().toISOString().slice(0, 10);
   document.getElementById('pdf-modal').classList.add('show');
 };
 // V871_MENU_PDF: Menu > PDF (only after the track has passed Finish). Unchanged since the last PDF -> straight to View/Send.
 // Edited since Finish -> the Finish checks run again; if they pass, the PDF is rebuilt from the current track.
-function pdfTrackSig() { return JSON.stringify({level, legs, hideDesc, lic: licenseText(), hl: pdfHighlightOn()}); }
+function pdfTrackSig() { return JSON.stringify({level, legs, hideDesc, lic: licenseText(), cm: pdfColourMode()}); }
 function menuPdf() {
   if (!finishedOnce) return alert('Finish the track first');
   if (!trackDone) {
@@ -2583,7 +2660,7 @@ document.getElementById('pdf-make').onclick = async () => {
   ['dog','comp','judge','steward'].forEach(k => { info[k] = document.getElementById('pdf-' + k).value.trim(); localStorage.setItem('pdf-' + k, info[k]); });
   const dv = document.getElementById('pdf-date').value;
   info.date = dv ? dv.split('-').reverse().join('/') : '';
-  info.highlight = document.getElementById('pdf-highlight').checked; localStorage.setItem(PDF_HL_KEY, info.highlight ? '1' : '0'); // V88_HIGHLIGHT_TOGGLE
+  info.colour = pdfColourFromForm(); setPdfColourMode(info.colour); // V89_PDF_COLOUR_MODE
   document.getElementById('pdf-modal').classList.remove('show');
   const blob = makeTrackPdf(info);
   const name = 'Tracking-TD' + level + (info.dog ? '-' + info.dog.replace(/[^\w-]+/g, '_') : '') + (dv ? '-' + dv : '') + '.pdf';
@@ -2798,7 +2875,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.8';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.9';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
