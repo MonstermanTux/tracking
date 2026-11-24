@@ -224,7 +224,7 @@ html.day .lic-about a { color:#0B5560; }
 <body>
 <div id="start-page" style="position:fixed;inset:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;">
   <h1 style="color:#ffeb3b;margin-bottom:4px;">Tracking</h1>
-  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v8.9 · © All Breeds Tracking Club</div>
+  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v9.0 · © All Breeds Tracking Club</div>
   <button id="start-badge" type="button" style="font-size:13px;padding:6px 12px;margin-bottom:12px;"></button>
   <p style="margin-bottom:16px;">Select track level</p>
   <select id="start-level" style="font-size:20px;padding:12px;margin-bottom:20px;">
@@ -318,7 +318,7 @@ html.day .lic-about a { color:#0B5560; }
 </div>
 <div id="about-modal" class="modal" style="z-index:460;"><!-- V87_LICENCE: Menu > About -->
   <div class="modal-content">
-    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v8.9</h3>
+    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v9.0</h3>
     <div id="about-lic" style="font-size:14px;"></div>
     <div class="lic-about">© All Breeds Tracking Club.<br>Unlock codes: email the secretary at <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20unlock%20code">trackingapp.zrphg@simplelogin.com</a><br>Suggestions: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20suggestion">trackingapp.zrphg@simplelogin.com</a><br>Donations to the club equipment fund: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Club%20equipment%20fund%20donation">contact us</a></div>
     <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button id="about-close" type="button">Close</button></div>
@@ -1438,6 +1438,9 @@ function drawMud() {
   });
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   pts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+  { const tg = R(level).lengthM - totalDist(); // V90_DISTANCE_TO_GO_LINE: leave room for the first part (up to 200 m) of the to-go line
+    if (!trackDone && tg > 0) { const r = Math.min(tg, 200) / FLAG_M * 24, ex = x + Math.cos(heading) * r, ey = y + Math.sin(heading) * r;
+      minX = Math.min(minX, ex); maxX = Math.max(maxX, ex); minY = Math.min(minY, ey); maxY = Math.max(maxY, ey); } }
   const spanX = maxX - minX || 1, spanY = maxY - minY || 1;
   const scale = Math.min((w - 24) / spanX, (h - 24) / spanY);
   const ox = (w - spanX * scale) / 2 - minX * scale;
@@ -1475,6 +1478,37 @@ function drawMud() {
       ctx.fillRect(mx - 4, my - 4, 8, 8);
     }
   });
+  // V90_DISTANCE_TO_GO_LINE: while plotting, a thin dashed line from the latest flag along the current leg, map-scaled to the
+  // distance still needed to reach the level's minimum track length (R(level).lengthM, the same figure as 'Dist x/y m (z left)'),
+  // clipped to the visible map; gone once the minimum is reached or the track is finished. Mud map only, never on the PDF.
+  window.lastMudToGo = null;
+  const toGoM = R(level).lengthM - totalDist();
+  if (!trackDone && !printMode && toGoM > 0 && sp.length) {
+    const P = sp[sp.length - 1], ux = Math.cos(heading), uy = Math.sin(heading), full = toGoM / FLAG_M * 24 * scale, MG = 4;
+    let tmax = Infinity; // how far the line can run before it leaves the visible map
+    if (ux > 1e-9) tmax = Math.min(tmax, (w - MG - P.x) / ux); if (ux < -1e-9) tmax = Math.min(tmax, (MG - P.x) / ux);
+    if (uy > 1e-9) tmax = Math.min(tmax, (h - MG - P.y) / uy); if (uy < -1e-9) tmax = Math.min(tmax, (MG - P.y) / uy);
+    const len = Math.max(0, Math.min(full, tmax)), x1 = P.x + ux * len, y1 = P.y + uy * len;
+    ctx.save(); ctx.globalAlpha = 0.6; ctx.strokeStyle = C.text; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    if (len > 6) { ctx.beginPath(); ctx.moveTo(P.x + ux * 7, P.y + uy * 7); ctx.lineTo(x1, y1); ctx.stroke(); }
+    ctx.setLineDash([]);
+    if (len > 6 && len >= full - 0.5) { ctx.beginPath(); ctx.moveTo(x1 - uy * 4, y1 + ux * 4); ctx.lineTo(x1 + uy * 4, y1 - ux * 4); ctx.stroke(); } // small end tick when the whole distance fits
+    const txt = 'approx ' + toGoM + 'm to go'; ctx.font = 'italic 11px sans-serif'; const tw = ctx.measureText(txt).width, th = 12;
+    // label beside the end of the line (perpendicular offset, clear of the line), kept inside the map
+    // try both sides of the line, near its end and a little further back; pick the spot that stays on the map and clear of the flags
+    const G = 8, cands = [];
+    [Math.min(len * 0.35, 24), Math.min(len * 0.6, 60)].forEach(back => [1, -1].forEach(sd => {
+      const axp = x1 - ux * back, ayp = y1 - uy * back, nx = -uy * sd, ny = ux * sd;
+      let lx = nx > 0.3 ? axp + nx * G : nx < -0.3 ? axp + nx * G - tw : axp - tw / 2;
+      let ly = ny > 0.3 ? ayp + ny * G + th : ny < -0.3 ? ayp + ny * G : ayp + th / 2 - 2;
+      const cx = Math.max(MG, Math.min(w - MG - tw, lx)), cy = Math.max(MG + th, Math.min(h - MG, ly));
+      const hits = sp.filter(p => p.x > cx - 7 && p.x < cx + tw + 7 && p.y > cy - th - 7 && p.y < cy + 7).length;
+      cands.push({lx: cx, ly: cy, score: hits * 100 + Math.hypot(cx - lx, cy - ly)}); }));
+    cands.sort((a, b) => a.score - b.score); let lx = cands[0].lx, ly = cands[0].ly;
+    ctx.globalAlpha = 0.85; ctx.fillStyle = C.text; ctx.textAlign = 'left'; ctx.fillText(txt, lx, ly);
+    ctx.restore();
+    window.lastMudToGo = {m: toGoM, x0: P.x, y0: P.y, x1, y1, ux, uy, fullPx: full, drawnPx: len, capped: len < full - 0.5, label: txt, lx, ly, lw: tw, scale};
+  }
   setMudPulse(selPt); // V86_DAY: selected-flag pulse, screen only
 }
 
@@ -1535,9 +1569,17 @@ function drawFullMap(pw, ph) {
   }
   // collision boxes: track dots + line samples, then each label as placed
   labelBoxes = []; labelHits = []; aimHits = []; artRings = []; crossTags = []; ctSegs = []; window.__lbl = []; // V87_LABELS stats
-  window.__endPt = points.length > 1 ? {x: points[points.length - 1].x, y: points[points.length - 1].y} : null; // V89_END_FLAG_CHEQUERED: the track's end point
-  if (printMode && window.pdfMmPx && window.__endPt && !window.__v89NoEndFlagBox) { // keep labels off the ~8 mm finish-flag symbol (drawn upright in map space)
-    const mm = window.pdfMmPx / mapScale; const ex = window.__endPt.x, ey = window.__endPt.y; const k = END_FLAG_S_MM * mm; labelBoxes.push({x: ex - 0.74 * k, y: ey - 0.77 * k, w: 1.48 * k, h: 0.6 * k}, {x: ex - 0.2 * k, y: ey - 0.2 * k, w: 0.4 * k, h: 0.56 * k}); } // flags band + crossed poles
+  window.__endPt = points.length > 1 ? {x: points[points.length - 1].x, y: points[points.length - 1].y, px: points[points.length - 2].x, py: points[points.length - 2].y} : null; // V89_END_FLAG_CHEQUERED: the track's end point (+ V90 the point before it)
+  if (printMode && window.pdfMmPx && window.__endPt && !window.__v89NoEndFlagBox) { // keep labels off the ~11 mm finish-flag symbol
+    // V90_END_FLAG_TRAVEL_DIR: the symbol's 'up' follows the last leg, so the keep-out is the turned symbol, as small boxes
+    const mm = window.pdfMmPx / mapScale; const E = window.__endPt, ex = E.x, ey = E.y; const k = END_FLAG_S_MM * mm;
+    const th = Math.atan2(ex - E.px, -(ey - E.py)), c = Math.cos(th), sn = Math.sin(th);
+    const cell = (x0, y0, x1, y1, nx, ny) => { for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+      const ax = x0 + (x1 - x0) * i / nx, bx = x0 + (x1 - x0) * (i + 1) / nx, ay = y0 + (y1 - y0) * j / ny, by = y0 + (y1 - y0) * (j + 1) / ny;
+      const P = [[ax, ay], [bx, ay], [bx, by], [ax, by]].map(([u, v]) => [ex + (u * c - v * sn) * k, ey + (u * sn + v * c) * k]);
+      const X0 = Math.min(...P.map(p => p[0])), X1 = Math.max(...P.map(p => p[0])), Y0 = Math.min(...P.map(p => p[1])), Y1 = Math.max(...P.map(p => p[1]));
+      labelBoxes.push({x: X0, y: Y0, w: X1 - X0, h: Y1 - Y0}); } };
+    cell(-0.74, -0.77, 0.74, -0.17, 6, 3); cell(-0.2, -0.2, 0.2, 0.36, 2, 3); } // flags band + crossed poles
   window.__lineSegs = []; // V871_LABEL_CLEAR: drawn lines, for the label checks
   const L0 = legs[0], LN = legs[legs.length - 1];
   points.forEach((p, k) => {
@@ -2443,8 +2485,8 @@ function highlightSwipe(g, cx, cy, R, seed, opt) {
 // V89_END_FLAG_CHEQUERED: two crossed chequered (finish) flags at the END FLAG, fixed paper size S page px tall,
 // the poles crossing just above the end point; turned with the map (rot) so it stands upright when the map is read
 const END_FLAG_S_MM = 10.8; // symbol scale: ~11 mm tall overall on paper (pole feet to flag tops)
-function drawEndFlag(g, x, y, S, rot) {
-  g.save(); g.translate(x, y); if (rot) g.rotate(-Math.PI / 2); // poles cross exactly on the end point
+function drawEndFlag(g, x, y, S, rot, ang) {
+  g.save(); g.translate(x, y); if (ang != null) g.rotate(ang); else if (rot) g.rotate(-Math.PI / 2); // poles cross exactly on the end point; V90: 'up' along the direction of travel
   const poleCol = '#333', lw = Math.max(1.5, 0.055 * S);
   const pole = (sx) => { // sx = -1: pole leaning left (flag flies out to the left); +1 mirror
     const tx = sx * 0.24 * S, ty = -0.62 * S, bx = -tx * 0.5, by = -ty * 0.5; // straight pole through the origin: the two poles cross exactly on the end point // bottom -> top, crossing at the origin
@@ -2466,7 +2508,7 @@ function drawEndFlag(g, x, y, S, rot) {
   [A, B].forEach(P => { g.beginPath(); g.moveTo(P.bx, P.by); g.lineTo(P.tx, P.ty); g.stroke();
     g.beginPath(); g.arc(P.tx, P.ty, lw * 0.9, 0, Math.PI * 2); g.fillStyle = poleCol; g.fill(); }); // pole knobs
   g.restore();
-  return {x, y, S, rot: !!rot};
+  return {x, y, S, rot: !!rot, ang: ang == null ? null : ang};
 }
 // ===== PDF export (A4, monochrome) =====
 function makeTrackPdf(info) {
@@ -2585,7 +2627,10 @@ function makeTrackPdf(info) {
   window.lastPdfEndFlag = null; // V89_END_FLAG_CHEQUERED: ~11 mm tall on paper whatever the map scale, same in Colour and Monochrome
   if (window.__endPt) { const X = window.__endPt.x * mapScale + mapTx, Y = window.__endPt.y * mapScale + mapTy;
     const ep = rot ? [M + 6 + Y * IW / MH, MY + 6 + IH - X * IH / MW] : [M + 6 + X * IW / MW, MY + 6 + Y * IH / MH];
-    window.lastPdfEndFlag = drawEndFlag(g, ep[0], ep[1], END_FLAG_S_MM * 150 / 25.4, rot); }
+    const PX = window.__endPt.px * mapScale + mapTx, PY = window.__endPt.py * mapScale + mapTy; // V90_END_FLAG_TRAVEL_DIR: previous track point on the page
+    const pp = rot ? [M + 6 + PY * IW / MH, MY + 6 + IH - PX * IH / MW] : [M + 6 + PX * IW / MW, MY + 6 + PY * IH / MH];
+    const tAng = Math.atan2(ep[0] - pp[0], -(ep[1] - pp[1])); // rotation that turns the symbol's 'up' onto the last leg's direction of travel
+    window.lastPdfEndFlag = drawEndFlag(g, ep[0], ep[1], END_FLAG_S_MM * 150 / 25.4, rot, tAng); }
   if (!isUnlocked()) { // v7.8 TEASER_TD3_LOCK watermark (free version only)
     g.save(); g.font = 'italic 18px sans-serif'; g.fillStyle = '#666'; g.textAlign = 'right';
     g.fillText('Free version – donation to the tracking club unlocks full', PW - M, PH - 12); g.restore();
@@ -2875,7 +2920,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '8.9';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '9.0';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
