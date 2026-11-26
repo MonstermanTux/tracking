@@ -224,7 +224,7 @@ html.day .lic-about a { color:#0B5560; }
 <body>
 <div id="start-page" style="position:fixed;inset:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;">
   <h1 style="color:#ffeb3b;margin-bottom:4px;">Tracking</h1>
-  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v9.1 · © All Breeds Tracking Club</div>
+  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v9.2 · © All Breeds Tracking Club</div>
   <button id="start-badge" type="button" style="font-size:13px;padding:6px 12px;margin-bottom:12px;"></button>
   <p style="margin-bottom:16px;">Select track level</p>
   <select id="start-level" style="font-size:20px;padding:12px;margin-bottom:20px;">
@@ -318,7 +318,7 @@ html.day .lic-about a { color:#0B5560; }
 </div>
 <div id="about-modal" class="modal" style="z-index:460;"><!-- V87_LICENCE: Menu > About -->
   <div class="modal-content">
-    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v9.1</h3>
+    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v9.2</h3>
     <div id="about-lic" style="font-size:14px;"></div>
     <div class="lic-about">© All Breeds Tracking Club.<br>Unlock codes: email the secretary at <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20unlock%20code">trackingapp.zrphg@simplelogin.com</a><br>Suggestions: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20suggestion">trackingapp.zrphg@simplelogin.com</a><br>Donations to the club equipment fund: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Club%20equipment%20fund%20donation">contact us</a></div>
     <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button id="about-close" type="button">Close</button></div>
@@ -898,6 +898,7 @@ function newLeg() {
       return alert('First change of direction must be at least ' + rules.firstCornerMinM + 'm from the start (this leg is ' + n + 'm)');
     }
   }
+  if (currentLeg && legs.indexOf(currentLeg) < legs.length - 1) return; // V92: safety net - a new leg only ever follows the LAST leg
   saveState();
   let exitDir = null;
   if (currentLeg && currentLeg.flags.length > 0) {
@@ -1357,9 +1358,11 @@ function render() {
       const dir = e.target.dataset.dir;
       if (!setDirection(i, dir)) return; // refused: don't open the corner note or start a new leg
       if (i === currentLeg.flags.length - 1) {
+        const lg = currentLeg, li = legs.indexOf(lg), editing = li >= 0 && li < legs.length - 1; // V92: an earlier leg's corner is only edited, never starts another leg
+        if (editing && legs[li + 1]) legs[li + 1].entryDir = dir;
         openDesc('Corner note', note => {
-          currentLeg.flags[i].cornerNote = note || '';
-          newLeg();
+          lg.flags[i].cornerNote = note || '';
+          if (editing) { render(); drawMud(); autoSave(); } else newLeg();
         });
       }
     };
@@ -2006,6 +2009,7 @@ function drawFullMap(pw, ph) {
           saveState();
           flag.direction = b.dataset.dir;
           leg.exitDir = b.dataset.dir;
+          { const li = legs.indexOf(leg); if (li >= 0 && legs[li + 1]) legs[li + 1].entryDir = b.dataset.dir; } // V92_CHANGE_EXIT_ENTRYDIR: next leg's entry direction follows the new exit
           title.textContent = 'Exit set to ' + labels[b.dataset.dir]; setDescKind('corner');
         };
       });
@@ -2017,6 +2021,8 @@ function drawFullMap(pw, ph) {
         drawFullMap();
         document.getElementById('fullmap').classList.add('show');
       };
+      { const cn = document.getElementById('desc-cancel'); if (cn) cn.style.display = ''; } // V92_CHANGE_EXIT_CANCEL: Cancel always shown here (an earlier required aim prompt had hidden it)
+      pendingAction.onCancel = () => { bar.innerHTML = ''; render(); drawFullMap(); document.getElementById('fullmap').classList.add('show'); }; // V92_CHANGE_EXIT_CANCEL: Cancel reopens the full map
       return;
     }
     // Otherwise select leg
@@ -2394,6 +2400,8 @@ function openDesc(title, cb, existing) {
   { const cn = document.getElementById('desc-cancel'); if (cn) cn.style.display = cb && cb.required ? 'none' : ''; } // V91_AIM_AFTER_CORNER: required prompts have no Cancel
   if (cb && cb.allowEmpty) title += ' (clear the text to delete this aim)';
   document.getElementById('modal-title').textContent = title; setDescKind(title);
+  { const di = document.getElementById('desc-input'); // V92_AIM_HINT_WORDING: aim / bearing prompts show the grey hint 'Aim (required)' (other prompts keep their hint)
+    if (/bearing|aim/i.test(title)) di.placeholder = 'Aim (required)'; else if (di.placeholder === 'Aim (required)') di.placeholder = 'Location note (required)'; }
   document.getElementById('desc-input').value = existing || '';
   document.getElementById('desc-modal').classList.add('show');
   pendingAction = cb;
@@ -2946,7 +2954,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '9.1';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '9.2';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
