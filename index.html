@@ -42,6 +42,9 @@ button:active { transform: scale(0.95); }
 .cross-stub { height: auto !important; min-height: 40px; }
 .dirs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .dirs button { background: var(--dir); color: #000; }
+.dirs button:disabled { opacity: .38; cursor: not-allowed; } /* V93_TURN_BUTTONS_SUBSET */
+.turn-why { font-size: 13px; color: #aaa; text-align: center; margin-top: 4px; }
+#fe-bar button:disabled { opacity: .38; }
 .cross-stub { width: 80%; height: 40px; background: var(--cross); margin: 4px auto;
   border: 2px solid var(--border); border-radius: 6px; display: flex;
   align-items: center; justify-content: space-around; font-size: 12px; color: #000; font-weight: bold; }
@@ -224,7 +227,7 @@ html.day .lic-about a { color:#0B5560; }
 <body>
 <div id="start-page" style="position:fixed;inset:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;">
   <h1 style="color:#ffeb3b;margin-bottom:4px;">Tracking</h1>
-  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v9.2 · © All Breeds Tracking Club</div>
+  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v9.3 · © All Breeds Tracking Club</div>
   <button id="start-badge" type="button" style="font-size:13px;padding:6px 12px;margin-bottom:12px;"></button>
   <p style="margin-bottom:16px;">Select track level</p>
   <select id="start-level" style="font-size:20px;padding:12px;margin-bottom:20px;">
@@ -318,7 +321,7 @@ html.day .lic-about a { color:#0B5560; }
 </div>
 <div id="about-modal" class="modal" style="z-index:460;"><!-- V87_LICENCE: Menu > About -->
   <div class="modal-content">
-    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v9.2</h3>
+    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v9.3</h3>
     <div id="about-lic" style="font-size:14px;"></div>
     <div class="lic-about">© All Breeds Tracking Club.<br>Unlock codes: email the secretary at <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20unlock%20code">trackingapp.zrphg@simplelogin.com</a><br>Suggestions: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20suggestion">trackingapp.zrphg@simplelogin.com</a><br>Donations to the club equipment fund: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Club%20equipment%20fund%20donation">contact us</a></div>
     <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button id="about-close" type="button">Close</button></div>
@@ -365,6 +368,31 @@ html.day .lic-about a { color:#0B5560; }
     <div id="pdf-colour-row" role="radiogroup" aria-label="PDF colour" style="display:flex;gap:8px;margin-top:10px;"><!-- V89_PDF_COLOUR_MODE -->
       <label class="pdf-cm" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:2px solid #888;border-radius:10px;padding:6px 8px;cursor:pointer;font-weight:bold;"><input type="radio" name="pdf-colour" id="pdf-colour-colour" value="colour" style="width:24px;height:24px;margin:0;"> Colour</label>
       <label class="pdf-cm" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:2px solid #888;border-radius:10px;padding:6px 8px;cursor:pointer;font-weight:bold;"><input type="radio" name="pdf-colour" id="pdf-colour-mono" value="mono" style="width:24px;height:24px;margin:0;"> Monochrome</label>
+    </div>
+    <div id="pdf-view-row" style="margin-top:10px;"><!-- V93_PDF_ISO_PENNANTS -->
+      <div style="font-weight:bold;margin-bottom:4px;">Map view</div>
+      <div style="display:flex;gap:6px;">
+        <label class="pdf-vw" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border:2px solid #888;border-radius:10px;padding:4px 6px;cursor:pointer;font-weight:bold;font-size:14px;"><input type="radio" name="pdf-view" id="pdf-view-flat" value="flat" style="width:20px;height:20px;margin:0;"> Flat</label>
+        <label class="pdf-vw" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border:2px solid #888;border-radius:10px;padding:4px 6px;cursor:pointer;font-weight:bold;font-size:14px;"><input type="radio" name="pdf-view" id="pdf-view-tiltflags" value="tiltflags" style="width:20px;height:20px;margin:0;"> Tilted + flags</label>
+        <label class="pdf-vw" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border:2px solid #888;border-radius:10px;padding:4px 6px;cursor:pointer;font-weight:bold;font-size:14px;"><input type="radio" name="pdf-view" id="pdf-view-tilt" value="tilt" style="width:20px;height:20px;margin:0;"> Tilted, no flags</label>
+      </div>
+      <div id="pdf-viewdir-row" style="margin-top:8px;display:none;"><!-- V93_PDF_ISO_VIEWDIR: tilted views only -->
+        <div style="font-weight:bold;margin-bottom:4px;">View from</div>
+        <select id="pdf-viewdir" style="width:100%;font-size:16px;min-height:36px;">
+          <option value="default">Page default</option>
+          <option value="along">Along first leg</option>
+          <option value="left">From left of first leg</option>
+          <option value="right">From right of first leg</option>
+        </select>
+      </div>
+    </div>
+    <div id="pdf-flagcol-row" style="margin-top:10px;display:grid;grid-template-columns:auto 1fr auto;gap:6px 8px;align-items:center;"><!-- V93_PDF_FLAG_PALETTE: Colour PDF only -->
+      <span style="font-weight:bold;">Flag colour</span>
+      <select id="pdf-flag-col" style="font-size:16px;min-height:36px;"><option value="std">Standard (as now)</option><option value="white">White</option><option value="green">Green</option><option value="orange">Orange</option><option value="blue">Blue</option><option value="pink">Pink</option><option value="custom">Custom…</option></select>
+      <input type="color" id="pdf-flag-custom" value="#ff8a1f" style="width:44px;height:36px;padding:0;">
+      <span style="font-weight:bold;">Start flag</span>
+      <select id="pdf-start-col" style="font-size:16px;min-height:36px;"><option value="std">Standard (as now)</option><option value="white">White</option><option value="green">Green</option><option value="orange">Orange</option><option value="blue">Blue</option><option value="pink">Pink</option><option value="custom">Custom…</option></select>
+      <input type="color" id="pdf-start-custom" value="#2e9d47" style="width:44px;height:36px;padding:0;">
     </div>
     <div style="margin-top:10px; display:flex; gap:8px; justify-content:flex-end;">
       <button id="pdf-cancel" type="button">Cancel</button>
@@ -1064,21 +1092,39 @@ function firstCornerTooShort(leg) { // V91_FIRST_CORNER_CHECK_FIRST: same rule a
   const n = legLength(leg);
   return n < rules.firstCornerMinM ? 'First change of direction must be at least ' + rules.firstCornerMinM + 'm from the start (this leg is ' + n + 'm)' : null;
 }
-function setDirection(flagIndex, dir) {
+// V93_TURN_BUTTONS_SUBSET: setDirection's refusal checks as a pure function (same checks, same order, same messages),
+// so the turn buttons can be greyed out with the reason; setDirection still runs them and alerts (backstop)
+function turnRefusal(flagIndex, dir) {
   const rules = R(level);
-  if (currentLeg && flagIndex === currentLeg.flags.length - 1) { const fc = firstCornerTooShort(currentLeg); if (fc) { alert(fc); return false; } } // V91: before anything else, so no corner note
-  if (isAcuteDir(dir) && !rules.allowAcute) { alert('Acute turns are not used on TD' + level); return false; }
-  if (isAcuteDir(dir) && rules.firstMustNotBeAcute && legs.length === 1) {
-    alert('The first change of direction on TD' + level + ' must be 30–90° (not acute)'); return false;
-  }
+  if (currentLeg && flagIndex === currentLeg.flags.length - 1) { const fc = firstCornerTooShort(currentLeg); if (fc) return fc; } // V91: before anything else, so no corner note
+  if (isAcuteDir(dir) && !rules.allowAcute) return 'Acute turns are not used on TD' + level;
+  if (isAcuteDir(dir) && rules.firstMustNotBeAcute && legs.length === 1) return 'The first change of direction on TD' + level + ' must be 30–90° (not acute)';
   if (isAcuteDir(dir) && rules.maxConsecutiveAcutes) {
     const prior = legs.slice(0, -1).map(l => l.exitDir).filter(Boolean);
-    if (maxAcuteRun(prior.concat([dir])) > rules.maxConsecutiveAcutes) {
-      alert('No more than ' + rules.maxConsecutiveAcutes + ' acute turns in a row on TD' + level); return false;
-    }
+    if (maxAcuteRun(prior.concat([dir])) > rules.maxConsecutiveAcutes) return 'No more than ' + rules.maxConsecutiveAcutes + ' acute turns in a row on TD' + level;
   }
   const blocked = placementBlockedByTurn(currentLeg, flagIndex);
-  if (blocked) { alert(blocked); return false; }
+  if (blocked) return blocked;
+  return null;
+}
+// leg-panel turn on the LAST leg also starts the next leg, which newLeg() refuses once the level's legs are all used
+function maxLegsRefusal() { const r = R(level); return r.maxLegs && legs.length >= r.maxLegs ? 'TD' + level + ' has exactly ' + plural(r.maxLegs, 'leg') + ' (' + plural(r.maxChanges, 'change of direction', 'changes of direction') + ')' : null; }
+function turnWhy(map) { const k = Object.keys(map).filter(d => map[d]); if (!k.length) return ''; const m = k.find(d => !isAcuteDir(d)) || k[0]; return map[m]; } // one line: the first refused 90/obtuse button's reason, else the acute one
+function turnWhyShort(msg) { // V93_TURN_REASON_SHORT: greyed-button reason is a short one-liner; the tap-alert backstop keeps the full sentence
+  if (!msg) return '';
+  let m = msg.match(/^First change of direction must be at least (\d+)m from the start \(this leg is (\d+)m\)$/);
+  if (m) return 'First corner min ' + m[1] + ' m (leg is ' + m[2] + ' m)';
+  m = msg.match(/^Acute turns are not used on (TD\d+)$/); if (m) return 'No acute turns on ' + m[1];
+  if (/^The first change of direction on TD\d+ must be 30–90° \(not acute\)$/.test(msg)) return 'First turn must not be acute';
+  m = msg.match(/^No more than (\d+) acute turns in a row on TD\d+$/); if (m) return 'Max ' + m[1] + ' acutes in a row';
+  if (/articles must be at least \d+m from a turn/.test(msg)) return 'Article within ' + RULES.articleMinFromTurnM + ' m of turn';
+  if (/^Move the cross-track first/.test(msg)) return 'Cross-track within ' + RULES.cross.minFromTurnM + ' m of turn';
+  m = msg.match(/^TD(\d+) has exactly (\d+) legs? \((\d+) changes? of direction\)$/);
+  if (m) return 'TD' + m[1] + ' is ' + m[2] + ' legs (' + m[3] + ' changes)';
+  return msg;
+}
+function setDirection(flagIndex, dir) {
+  { const why = turnRefusal(flagIndex, dir); if (why) { alert(why); return false; } } // V93: same checks and alerts as before (backstop)
   saveState();
   currentLeg.flags[flagIndex].direction = dir;
   render();
@@ -1210,12 +1256,18 @@ function render() {
     const bearingField = f.isStart ? '' : `<div class="bearing" data-i="${i}">${f.bearing || ''}</div>`;
     const isLast = i === currentLeg.flags.length - 1;
     const ct = currentLeg.crossTracks.find(c => c.afterFlag === i);
+    // V93_TURN_BUTTONS_SUBSET: a turn button setDirection (or the following newLeg on the last leg) would refuse is greyed out, with the reason
+    const refuse = {}; if (!f.isStart && isLast) { const lastLeg = legs.indexOf(currentLeg) === legs.length - 1, ml = lastLeg ? maxLegsRefusal() : null;
+      ['90L', '90R', 'obtL', 'obtR'].concat(allowAcute(level) ? ['acL', 'acR'] : []).forEach(d => { refuse[d] = turnRefusal(i, d) || ml; }); }
+    const tb = (d, t) => `<button data-dir="${d}"${refuse[d] ? ' disabled title="' + feEsc(refuse[d]) + '"' : ''}>${t}</button>`;
+    const why = turnWhy(refuse);
     const dirButtons = (f.isStart || !isLast) ? (f.direction ? `<div>Leaving: <b>${f.direction}</b></div>` : '') : `
       <div class="dirs" data-i="${i}">
-        <button data-dir="90L">90° L</button><button data-dir="90R">90° R</button>
-        <button data-dir="obtL">Obtuse L</button><button data-dir="obtR">Obtuse R</button>
-        ${allowAcute(level) ? '<button data-dir="acL">Acute L</button><button data-dir="acR">Acute R</button>' : ''}
+        ${tb('90L', '90° L')}${tb('90R', '90° R')}
+        ${tb('obtL', 'Obtuse L')}${tb('obtR', 'Obtuse R')}
+        ${allowAcute(level) ? tb('acL', 'Acute L') + tb('acR', 'Acute R') : ''}
       </div>
+      ${why ? `<div class="turn-why">${feEsc(turnWhyShort(why))}</div>` : ''}
       ${f.direction ? `<div>Leaving: <b>${f.direction}</b></div>` : ''}`;
     div.innerHTML = `
       <strong>${label}</strong>${f === selectedFlag ? ' <span class="sel-note">SELECTED – −50m deletes it, +50m adds after it</span>' : ''}
@@ -1356,6 +1408,7 @@ function render() {
     btn.onclick = e => {
       const i = +e.target.parentElement.dataset.i;
       const dir = e.target.dataset.dir;
+      if (e.target.disabled) return; // V93: greyed out
       if (!setDirection(i, dir)) return; // refused: don't open the corner note or start a new leg
       if (i === currentLeg.flags.length - 1) {
         const lg = currentLeg, li = legs.indexOf(lg), editing = li >= 0 && li < legs.length - 1; // V92: an earlier leg's corner is only edited, never starts another leg
@@ -1540,7 +1593,9 @@ function drawFullMap(pw, ph) {
   // Collect points like mud map then rescale
   let points = [];
   let x = w/2, y = h - 40;
-  let heading = -Math.PI/2;
+  let heading = -Math.PI/2; // default / along: leg 1 goes up the page (away from the viewer at the bottom)
+  if (printMode && window.__pdfViewDir === 'left') heading = Math.PI; // V93_PDF_ISO_VIEWDIR: from the left of leg 1, travel goes right-to-left
+  if (printMode && window.__pdfViewDir === 'right') heading = 0; // from the right of leg 1, travel goes left-to-right
   const st0 = legs[0] && legs[0].flags[0] && legs[0].flags[0].isStart ? legs[0].flags[0] : null;
   points.push({x, y, leg:0, flag:0, fo: st0, article: st0 && st0.article ? st0.article.desc : null, artLabel: st0 && st0.article ? st0.article.label || '' : '', articleAtFlag: true});
   legs.forEach((leg, li) => {
@@ -1585,6 +1640,7 @@ function drawFullMap(pw, ph) {
     }));
   }
   // collision boxes: track dots + line samples, then each label as placed
+  window.__mapPts = points; // V93_PDF_ISO_PENNANTS: flag positions for the PDF flag layers
   labelBoxes = []; labelHits = []; aimHits = []; artRings = []; crossTags = []; ctSegs = []; window.__lbl = []; // V87_LABELS stats
   window.__endPt = points.length > 1 ? {x: points[points.length - 1].x, y: points[points.length - 1].y, px: points[points.length - 2].x, py: points[points.length - 2].y} : null; // V89_END_FLAG_CHEQUERED: the track's end point (+ V90 the point before it)
   if (printMode && window.pdfMmPx && window.__endPt && !window.__v89NoEndFlagBox) { // keep labels off the ~11 mm finish-flag symbol
@@ -1597,6 +1653,13 @@ function drawFullMap(pw, ph) {
       const X0 = Math.min(...P.map(p => p[0])), X1 = Math.max(...P.map(p => p[0])), Y0 = Math.min(...P.map(p => p[1])), Y1 = Math.max(...P.map(p => p[1]));
       labelBoxes.push({x: X0, y: Y0, w: X1 - X0, h: Y1 - Y0}); } };
     cell(-0.74, -0.77, 0.74, -0.17, 6, 3); cell(-0.2, -0.2, 0.2, 0.36, 2, 3); } // flags band + crossed poles
+  if (printMode && window.__pdfStickKeep) { // V93_PDF_ISO_PENNANTS: Tilted views: labels keep off each flag's stick + pennant (Tilted + flags)
+    // and off the upright finish flags, all of which stand above the squashed ground on the page
+    const K = window.__pdfStickKeep, kx = mapScale * K.k, ky = kx * K.tilt, up = K.S * 1.05, lft = K.S * 0.3, rgt = K.S * 0.7;
+    const keep = (p, l, r, u, dn) => { if (!K.rot) labelBoxes.push({x: p.x - l / kx, y: p.y - u / ky, w: (l + r) / kx, h: (u - dn) / ky});
+      else labelBoxes.push({x: p.x + dn / ky, y: p.y - l / kx, w: (u - dn) / ky, h: (l + r) / kx}); };
+    if (K.flags) points.forEach((p, idx) => { if (p.fo && idx < points.length - 1) keep(p, lft, rgt, up, 8); });
+    if (window.__endPt && points.length > 1) { const E = K.E; keep(points[points.length - 1], E * 0.85, E * 0.85, E * 0.85, -E * 0.85); } }
   window.__lineSegs = []; // V871_LABEL_CLEAR: drawn lines, for the label checks
   const L0 = legs[0], LN = legs[legs.length - 1];
   points.forEach((p, k) => {
@@ -2509,7 +2572,8 @@ function highlightSwipe(g, cx, cy, R, seed, opt) {
 }
 // V89_END_FLAG_CHEQUERED: two crossed chequered (finish) flags at the END FLAG, fixed paper size S page px tall,
 // the poles crossing just above the end point; turned with the map (rot) so it stands upright when the map is read
-const END_FLAG_S_MM = 10.8; // symbol scale: ~11 mm tall overall on paper (pole feet to flag tops)
+const END_FLAG_S_MM = 10.8;
+const PDF_TILT = 0.6, PDF_STICK_MM = 8; // V93_PDF_ISO_PENNANTS: ground squashed to 60 % height (about 37 deg view); flag sticks ~8 mm on paper // symbol scale: ~11 mm tall overall on paper (pole feet to flag tops)
 function drawEndFlag(g, x, y, S, rot, ang) {
   g.save(); g.translate(x, y); if (ang != null) g.rotate(ang); else if (rot) g.rotate(-Math.PI / 2); // poles cross exactly on the end point; V90: 'up' along the direction of travel
   const poleCol = '#333', lw = Math.max(1.5, 0.055 * S);
@@ -2547,7 +2611,10 @@ function makeTrackPdf(info) {
   // v8.2c PDF_ORIENT_BY_ASPECT: from the track's bounding box; landscape unless the track is clearly (>15%) taller than wide
   // v8.3 PDF_PORTRAIT_MAP_ROTATE (replaces whole-page landscape): the page is always portrait with the title block across
   // the top short side; only the map is turned 90 deg (top of the map to the left edge) when the track is wider than tall
-  const land = false, rot = ext[0] > ext[1];
+  const pview = PDF_VIEWS.includes(info.view) ? info.view : pdfViewMode(), tilt = pview !== 'flat'; window.lastPdfView = pview; // V93_PDF_ISO_PENNANTS
+  const vdirRaw = info.viewDir !== undefined ? info.viewDir : pdfViewDir(), vdir = tilt && PDF_VDIRS.includes(vdirRaw) ? vdirRaw : 'default';
+  window.lastPdfViewDir = vdir; window.__pdfViewDir = (tilt && vdir !== 'default') ? vdir : null; // V93_PDF_ISO_VIEWDIR: along/left/right rotate the ground before tilt; Page default keeps the old output
+  const land = false, rot = (tilt && vdir !== 'default') ? false : ext[0] > ext[1]; // directed views: no extra 90° turn (the heading is the view)
   window.lastPdfOrient = {land, rot, w: ext[0], h: ext[1]};
   const PW = land ? 1754 : 1240, PH = land ? 1240 : 1754; // A4 @150dpi
   const pc = document.createElement('canvas'); pc.width = PW; pc.height = PH;
@@ -2606,7 +2673,12 @@ function makeTrackPdf(info) {
   // draw map at fixed size, unzoomed, then convert to black ink on white
   const cmode = info.colour === 'mono' || info.colour === 'colour' ? info.colour : pdfColourMode(); window.lastPdfMode = cmode; // V89_PDF_COLOUR_MODE
   const sv = [mapScale, mapTx, mapTy]; mapScale = 1; mapTx = 0; mapTy = 0; printMode = true; pdfColourPrint = cmode === 'colour';
-  const IW = PW - 2 * M - 12, IH = PH - MY - M - 12 - legendH;
+  const IW = PW - 2 * M - 12, IH0 = PH - MY - M - 12 - legendH;
+  // V93_PDF_ISO_PENNANTS: Tilted views squash the whole ground layer (map, text, rings, swipes) by TILT in page height, one
+  // transform; HR = headroom above it for the flag sticks. Flat: IH = IH0 and nothing below changes.
+  const TILT = PDF_TILT, HR = tilt ? Math.round(PDF_STICK_MM * 150 / 25.4 * 1.2) : 0;
+  const IH = tilt ? Math.round((IH0 - HR) / TILT) : IH0;
+  const tY = y => tilt ? MY + 6 + HR + (y - (MY + 6)) * TILT : y; // ground (untilted page) y -> page y
   // v8.1 PDF_FIT_LANDSCAPE: draw at a finer resolution (text ~1.8x on paper instead of ~2.4x) and fit the whole drawing,
   // labels included, into the map box: grow the track to use the space, shrink it if any label would run off the page
   const BW = rot ? IH : IW, BH = rot ? IW : IH; // map drawn in its own (landscape when rotated) frame, then turned into the box
@@ -2616,6 +2688,7 @@ function makeTrackPdf(info) {
     labelBoxes.forEach(b => { x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); });
     return {x0, y0, x1, y1, X0: x0 * mapScale + mapTx, Y0: y0 * mapScale + mapTy, X1: x1 * mapScale + mapTx, Y1: y1 * mapScale + mapTy}; };
   let fitM = null;
+  window.__pdfStickKeep = tilt ? {k: (rot ? IH : IW) / MW, tilt: TILT, S: PDF_STICK_MM * 150 / 25.4, E: END_FLAG_S_MM * 150 / 25.4, rot, flags: pview === 'tiltflags'} : null; // V93
   for (let it = 0; it < 10; it++) {
     drawFullMap(MW, MH); fitM = measure();
     const k = Math.min((MW - 2 * PAD) / (fitM.X1 - fitM.X0 || 1), (MH - 2 * PAD) / (fitM.Y1 - fitM.Y0 || 1));
@@ -2641,6 +2714,7 @@ function makeTrackPdf(info) {
   }
   pdfColourPrint = false;
   fctx.putImageData(img, 0, 0);
+  if (tilt) { g.save(); g.translate(0, MY + 6 + HR); g.scale(1, TILT); g.translate(0, -(MY + 6)); } // V93: ground layer transform
   if (rot) { g.save(); g.translate(M + 6, MY + 6 + IH); g.rotate(-Math.PI / 2); g.drawImage(fullcanvas, 0, 0, MW, MH, 0, 0, IH, IW); g.restore(); } // PDF_PORTRAIT_MAP_ROTATE
   else g.drawImage(fullcanvas, 0, 0, MW, MH, M + 6, MY + 6, IW, IH);
   // V88_ARTICLE_HIGHLIGHT_SWIPE: a hand-done yellow highlighter swipe over each article ring. Drawn with 'multiply', so it
@@ -2658,11 +2732,47 @@ function makeTrackPdf(info) {
       window.lastPdfSwipes.push(highlightSwipe(g, px, py, R, String((z.p && z.p.artLabel) || '') + '|' + n, {legAng, mode: cmode}));
     });
   }
+  // V93: flag positions on the (untilted) page, for the flag colours and the flag sticks
+  const vPage = (x, y) => { const X = x * mapScale + mapTx, Y = y * mapScale + mapTy;
+    if (rot) { const u = X * IH / MW, v = Y * IW / MH; return [M + 6 + v, MY + 6 + IH - u]; }
+    return [M + 6 + X * IW / MW, MY + 6 + Y * IH / MH]; };
+  const kPg = (rot ? IH : IW) / MW, mp = window.__mapPts || [];
+  window.lastPdfLeg1 = (mp[0] && mp[1]) ? (() => { const A = vPage(mp[0].x, mp[0].y), B = vPage(mp[1].x, mp[1].y); return {sx: A[0], sy: tY(A[1]), x: B[0], y: tY(B[1])}; })() : null;
+  const flagPts = mp.map((p, idx) => ({p, idx})).filter(o => o.p.fo && o.idx < mp.length - 1); // every flag except the end (chequered flags)
+  const fCol = cmode === 'colour' ? pdfColHex(info.flagCol !== undefined ? info.flagCol : pdfFlagSetting(PDF_FLAG_KEY)) : null; // V93_PDF_FLAG_PALETTE: Colour PDF only
+  const sCol = cmode === 'colour' ? pdfColHex(info.startCol !== undefined ? info.startCol : pdfFlagSetting(PDF_START_KEY)) : null;
+  window.lastPdfFlagCols = {flag: fCol, start: sCol, mode: cmode};
+  if (fCol || sCol) { // the chosen colour over the flag dot (same size, thin dark rim so white shows on white paper); ground layer
+    g.save(); g.lineWidth = 1.6; g.strokeStyle = '#222';
+    const ringAt = new Set((artRings || []).filter(z => z.atFlag).map(z => z.p)); // an article ring at the flag covers the dot: leave the ring alone
+    flagPts.forEach(({p, idx}) => { const c = idx === 0 ? sCol : fCol; if (!c || ringAt.has(p)) return; const [x, y] = vPage(p.x, p.y);
+      g.fillStyle = c; g.beginPath(); g.arc(x, y, 7 * kPg, 0, Math.PI * 2); g.fill(); g.stroke(); });
+    g.restore(); }
+  if (tilt) g.restore();
+  window.lastPdfSticks = [];
+  if (pview === 'tiltflags') { // V93_PDF_ISO_PENNANTS: above-ground layer, not squashed: a stick + pennant at each flag, nearest drawn last
+    const S = PDF_STICK_MM * 150 / 25.4, LEAN = 20 * Math.PI / 180;
+    const sticks = flagPts.map(({p, idx}) => { const v = vPage(p.x, p.y), B = [v[0], tY(v[1])];
+      const lg = legs[p.leg], corner = idx > 0 && lg && p.leg < legs.length - 1 && lg.flags[lg.flags.length - 1] === p.fo && mp[idx + 1];
+      let T = [B[0], B[1] - S], lean = null;
+      if (corner) { const w = vPage(mp[idx + 1].x, mp[idx + 1].y); let ux = w[0] - v[0], uy = w[1] - v[1]; const L = Math.hypot(ux, uy) || 1; ux /= L; uy /= L; // next leg's direction on the ground
+        T = [B[0] + ux * S * Math.sin(LEAN), B[1] - S * Math.cos(LEAN) + uy * TILT * S * Math.sin(LEAN)]; lean = [ux, uy]; }
+      const col = idx === 0 ? (sCol || (cmode === 'colour' ? 'rgb(' + PDF_INK.start.join(',') + ')' : '#9a9a9a')) : (fCol || (cmode === 'colour' ? '#222222' : '#ffffff'));
+      return {idx, leg: p.leg, flag: p.flag, B, T, corner: !!corner, lean, col}; }).sort((a, b) => a.B[1] - b.B[1]);
+    sticks.forEach(k => { const {B, T} = k, dx = T[0] - B[0], dy = T[1] - B[1];
+      g.save(); g.lineCap = 'round'; g.strokeStyle = '#333'; g.lineWidth = 2.6; g.beginPath(); g.moveTo(B[0], B[1]); g.lineTo(T[0], T[1]); g.stroke();
+      const A = [T[0] + dx * 0.02, T[1] + dy * 0.02], Bt = [T[0] - dx * 0.4, T[1] - dy * 0.4], tip = [(A[0] + Bt[0]) / 2 + S * 0.62, (A[1] + Bt[1]) / 2 + S * 0.03]; // pennant flies to the right
+      g.fillStyle = k.col; g.strokeStyle = '#222'; g.lineWidth = 1.4; g.lineJoin = 'round';
+      g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(tip[0], tip[1]); g.lineTo(Bt[0], Bt[1]); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#333'; g.beginPath(); g.arc(T[0], T[1], 2.2, 0, Math.PI * 2); g.fill(); g.restore();
+      window.lastPdfSticks.push(k); }); }
   window.lastPdfEndFlag = null; // V89_END_FLAG_CHEQUERED: ~11 mm tall on paper whatever the map scale, same in Colour and Monochrome
   if (window.__endPt) { const X = window.__endPt.x * mapScale + mapTx, Y = window.__endPt.y * mapScale + mapTy;
     const ep = rot ? [M + 6 + Y * IW / MH, MY + 6 + IH - X * IH / MW] : [M + 6 + X * IW / MW, MY + 6 + Y * IH / MH];
+    if (tilt) ep[1] = tY(ep[1]); // V93: the finish flags stand upright on the tilted ground
     const PX = window.__endPt.px * mapScale + mapTx, PY = window.__endPt.py * mapScale + mapTy; // V90_END_FLAG_TRAVEL_DIR: previous track point on the page
     const pp = rot ? [M + 6 + PY * IW / MH, MY + 6 + IH - PX * IH / MW] : [M + 6 + PX * IW / MW, MY + 6 + PY * IH / MH];
+    if (tilt) pp[1] = tY(pp[1]);
     const tAng = Math.atan2(ep[0] - pp[0], -(ep[1] - pp[1])); // rotation that turns the symbol's 'up' onto the last leg's direction of travel
     window.lastPdfEndFlag = drawEndFlag(g, ep[0], ep[1], END_FLAG_S_MM * 150 / 25.4, rot, tAng); }
   if (!isUnlocked()) { // v7.8 TEASER_TD3_LOCK watermark (free version only)
@@ -2674,7 +2784,7 @@ function makeTrackPdf(info) {
     const maxW = isUnlocked() ? PW - 2 * M : PW / 2 - M - 10; let t = ft;
     while (g.measureText(t).width > maxW && t.length > 10) t = t.slice(0, -2);
     g.fillText(t === ft ? t : t + '…', M, PH - 12); g.restore(); }
-  [mapScale, mapTx, mapTy] = sv; printMode = false; pdfColourPrint = false;
+  [mapScale, mapTx, mapTy] = sv; printMode = false; pdfColourPrint = false; window.__pdfStickKeep = null; window.__pdfViewDir = null;
   drawFullMap();
   // build PDF with embedded JPEG
   const jpg = atob(pc.toDataURL('image/jpeg', 0.92).split(',')[1]);
@@ -2710,16 +2820,44 @@ function pdfCmShow() { document.querySelectorAll('#pdf-colour-row .pdf-cm').forE
   l.style.borderColor = on ? '#ffeb3b' : '#888'; l.style.background = on ? 'rgba(255,235,59,0.15)' : 'transparent'; }); }
 document.querySelectorAll('#pdf-colour-row input').forEach(r => r.addEventListener('change', pdfCmShow));
 function pdfColourFromForm() { const m = document.getElementById('pdf-colour-mono'); return m && m.checked ? 'mono' : 'colour'; }
+// V93_PDF_ISO_PENNANTS: PDF map view, saved like the other PDF options; default Flat (exactly the old PDF)
+const PDF_VIEW_KEY = 'pdf-view', PDF_VIEWS = ['flat', 'tiltflags', 'tilt'];
+function pdfViewMode() { try { const v = localStorage.getItem(PDF_VIEW_KEY); return PDF_VIEWS.includes(v) ? v : 'flat'; } catch (e) { return 'flat'; } }
+function setPdfViewMode(v) { try { localStorage.setItem(PDF_VIEW_KEY, PDF_VIEWS.includes(v) ? v : 'flat'); } catch (e) {} }
+function pdfViewFromForm() { const r = document.querySelector('#pdf-view-row input:checked'); return r && PDF_VIEWS.includes(r.value) ? r.value : 'flat'; }
+// V93_PDF_ISO_VIEWDIR: tilted views only; default 'default' keeps the existing (unrotated) tilted output, including the wide-track 90° map turn
+const PDF_VDIR_KEY = 'pdf-viewdir', PDF_VDIRS = ['default', 'along', 'left', 'right'];
+function pdfViewDir() { try { const v = localStorage.getItem(PDF_VDIR_KEY); return PDF_VDIRS.includes(v) ? v : 'default'; } catch (e) { return 'default'; } }
+function setPdfViewDir(v) { try { localStorage.setItem(PDF_VDIR_KEY, PDF_VDIRS.includes(v) ? v : 'default'); } catch (e) {} }
+function pdfViewDirFromForm() { const s = document.getElementById('pdf-viewdir'); return s && PDF_VDIRS.includes(s.value) ? s.value : 'default'; }
+// V93_PDF_FLAG_PALETTE: Colour PDF flag colour + separate start flag colour; 'std' = as before (black flags, green start)
+const PDF_FLAG_KEY = 'pdf-flag-col', PDF_START_KEY = 'pdf-start-col';
+const PDF_FLAG_PRESETS = {white: '#ffffff', green: '#2e9d47', orange: '#ff8a1f', blue: '#2f6fd6', pink: '#ff6fb5'};
+const pdfColOk = v => v === 'std' || !!PDF_FLAG_PRESETS[v] || /^#[0-9a-f]{6}$/i.test(v || '');
+function pdfFlagSetting(key) { try { const v = localStorage.getItem(key); return pdfColOk(v) ? v : 'std'; } catch (e) { return 'std'; } }
+function setPdfFlagSetting(key, v) { try { localStorage.setItem(key, pdfColOk(v) ? v : 'std'); } catch (e) {} }
+function pdfColHex(v) { return v === 'std' || !pdfColOk(v) ? null : (PDF_FLAG_PRESETS[v] || v.toLowerCase()); }
+function pdfFlagColFromForm(sel, inp) { const s = document.getElementById(sel), c = document.getElementById(inp); if (!s) return 'std'; return s.value === 'custom' ? (c && /^#[0-9a-f]{6}$/i.test(c.value) ? c.value.toLowerCase() : 'std') : s.value; }
+function pdfFlagColToForm(v, sel, inp) { const s = document.getElementById(sel), c = document.getElementById(inp); if (!s) return;
+  if (/^#/.test(v)) { s.value = 'custom'; if (c) c.value = v; } else s.value = v; if (c) c.style.visibility = s.value === 'custom' ? 'visible' : 'hidden'; }
+function pdfFormShow() { const mono = pdfColourFromForm() === 'mono', r = document.getElementById('pdf-flagcol-row'); if (r) r.style.display = mono ? 'none' : 'grid';
+  document.querySelectorAll('#pdf-view-row .pdf-vw').forEach(l => { const on = l.querySelector('input').checked; l.style.borderColor = on ? '#ffeb3b' : '#888'; l.style.background = on ? 'rgba(255,235,59,0.15)' : 'transparent'; });
+  const vd = document.getElementById('pdf-viewdir-row'); if (vd) vd.style.display = pdfViewFromForm() !== 'flat' ? 'block' : 'none'; // V93_PDF_ISO_VIEWDIR
+  [['pdf-flag-col', 'pdf-flag-custom'], ['pdf-start-col', 'pdf-start-custom']].forEach(([a, b]) => { const s = document.getElementById(a), c = document.getElementById(b); if (s && c) c.style.visibility = s.value === 'custom' ? 'visible' : 'hidden'; }); }
+document.querySelectorAll('#pdf-colour-row input, #pdf-view-row input, #pdf-flagcol-row select').forEach(r => r.addEventListener('change', pdfFormShow));
 document.getElementById('pdf-btn').onclick = () => {
   if (!trackDone) return alert('Finish the track first');
   { const m = pdfColourMode(); document.getElementById('pdf-colour-colour').checked = m === 'colour'; document.getElementById('pdf-colour-mono').checked = m === 'mono'; pdfCmShow(); }
+  { const v = pdfViewMode(); PDF_VIEWS.forEach(k => { const r = document.getElementById('pdf-view-' + k); if (r) r.checked = k === v; }); // V93
+    pdfFlagColToForm(pdfFlagSetting(PDF_FLAG_KEY), 'pdf-flag-col', 'pdf-flag-custom'); pdfFlagColToForm(pdfFlagSetting(PDF_START_KEY), 'pdf-start-col', 'pdf-start-custom');
+    { const s = document.getElementById('pdf-viewdir'); if (s) s.value = pdfViewDir(); } pdfFormShow(); }
   ['dog','comp','judge','steward'].forEach(k => { document.getElementById('pdf-' + k).value = localStorage.getItem('pdf-' + k) || ''; });
   const dt = document.getElementById('pdf-date'); if (!dt.value) dt.value = new Date().toISOString().slice(0, 10);
   document.getElementById('pdf-modal').classList.add('show');
 };
 // V871_MENU_PDF: Menu > PDF (only after the track has passed Finish). Unchanged since the last PDF -> straight to View/Send.
 // Edited since Finish -> the Finish checks run again; if they pass, the PDF is rebuilt from the current track.
-function pdfTrackSig() { return JSON.stringify({level, legs, hideDesc, lic: licenseText(), cm: pdfColourMode()}); }
+function pdfTrackSig() { return JSON.stringify({level, legs, hideDesc, lic: licenseText(), cm: pdfColourMode(), vw: pdfViewMode(), vd: pdfViewDir(), fc: pdfFlagSetting(PDF_FLAG_KEY), sc: pdfFlagSetting(PDF_START_KEY)}); } // V93: view + viewdir + flag colours
 function menuPdf() {
   if (!finishedOnce) return alert('Finish the track first');
   if (!trackDone) {
@@ -2740,6 +2878,10 @@ document.getElementById('pdf-make').onclick = async () => {
   const dv = document.getElementById('pdf-date').value;
   info.date = dv ? dv.split('-').reverse().join('/') : '';
   info.colour = pdfColourFromForm(); setPdfColourMode(info.colour); // V89_PDF_COLOUR_MODE
+  info.view = pdfViewFromForm(); setPdfViewMode(info.view); // V93_PDF_ISO_PENNANTS
+  info.viewDir = pdfViewDirFromForm(); setPdfViewDir(info.viewDir); // V93_PDF_ISO_VIEWDIR
+  info.flagCol = pdfFlagColFromForm('pdf-flag-col', 'pdf-flag-custom'); setPdfFlagSetting(PDF_FLAG_KEY, info.flagCol); // V93_PDF_FLAG_PALETTE
+  info.startCol = pdfFlagColFromForm('pdf-start-col', 'pdf-start-custom'); setPdfFlagSetting(PDF_START_KEY, info.startCol);
   document.getElementById('pdf-modal').classList.remove('show');
   const blob = makeTrackPdf(info);
   const name = 'Tracking-TD' + level + (info.dog ? '-' + info.dog.replace(/[^\w-]+/g, '_') : '') + (dv ? '-' + dv : '') + '.pdf';
@@ -2954,7 +3096,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '9.2';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '9.3';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
@@ -3354,7 +3496,11 @@ function feRender() {
   const cornerTurns = isLast && !f.isStart && (editing || (!vo && !trackDone && !(rules.maxLegs && legs.length >= rules.maxLegs)));
   let main = '';
   if (cornerTurns) { const cur = f.direction || leg.exitDir || '';
-    main = `<div class="fe-turns">${dirs.map(d => btn(editing ? 'exit' : 'turn', FE_DIRS[d].replace('Obtuse', 'Obt'), ` data-dir="${d}" class="${d === cur ? 'on' : ''}"` + dis)).join('')}</div>`; }
+    // V93_TURN_BUTTONS_SUBSET: greyed out where the button's own handler would refuse ('turn' -> setDirection; 'exit' -> acute / first corner check)
+    const refuse = {}; dirs.forEach(d => { refuse[d] = editing ? ((isAcuteDir(d) && !allowAcute(level)) ? 'Acute turns are not used on TD' + level : firstCornerTooShort(leg)) : turnRefusal(fi, d); });
+    const why = turnWhy(refuse);
+    main = `<div class="fe-turns">${dirs.map(d => btn(editing ? 'exit' : 'turn', FE_DIRS[d].replace('Obtuse', 'Obt'), ` data-dir="${d}" class="${d === cur ? 'on' : ''}"` + (refuse[d] && !vo ? ' disabled title="' + feEsc(refuse[d]) + '"' : dis))).join('')}</div>`
+      + (why ? `<div class="turn-why fe-why">${feEsc(turnWhyShort(why))}</div>` : ''); }
   document.getElementById('fe-bar').innerHTML = `<div class="fe-lbl">${cornerTurns ? (editing ? 'Turn at' : 'Turn after') : 'Selected'} <b>F${fnum} · ${f.isStart ? '0 m' : fnum * FLAG_M + ' m'}</b>${note ? ` <span class="fe-note">· ${note}</span>` : ''}</div>` + main;
   const sc = document.querySelector('#fe-body .fe-card.sel'); if (sc && sc.scrollIntoView) sc.scrollIntoView({block: 'nearest'});
 }
