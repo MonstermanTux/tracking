@@ -227,7 +227,7 @@ html.day .lic-about a { color:#0B5560; }
 <body>
 <div id="start-page" style="position:fixed;inset:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;">
   <h1 style="color:#ffeb3b;margin-bottom:4px;">Tracking</h1>
-  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v9.4 · © All Breeds Tracking Club</div>
+  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v9.5 · © All Breeds Tracking Club</div>
   <button id="start-badge" type="button" style="font-size:13px;padding:6px 12px;margin-bottom:12px;"></button>
   <p style="margin-bottom:16px;">Select track level</p>
   <select id="start-level" style="font-size:20px;padding:12px;margin-bottom:20px;">
@@ -321,7 +321,7 @@ html.day .lic-about a { color:#0B5560; }
 </div>
 <div id="about-modal" class="modal" style="z-index:460;"><!-- V87_LICENCE: Menu > About -->
   <div class="modal-content">
-    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v9.4</h3>
+    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v9.5</h3>
     <div id="about-lic" style="font-size:14px;"></div>
     <div class="lic-about">© All Breeds Tracking Club.<br>Unlock codes: email the secretary at <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20unlock%20code">trackingapp.zrphg@simplelogin.com</a><br>Suggestions: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20suggestion">trackingapp.zrphg@simplelogin.com</a><br>Donations to the club equipment fund: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Club%20equipment%20fund%20donation">contact us</a></div>
     <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button id="about-close" type="button">Close</button></div>
@@ -395,6 +395,9 @@ html.day .lic-about a { color:#0B5560; }
       <span style="font-weight:bold;">Start flag</span>
       <select id="pdf-start-col" style="font-size:16px;min-height:36px;"><option value="std">Standard (as now)</option><option value="white">White</option><option value="green">Green</option><option value="orange">Orange</option><option value="blue">Blue</option><option value="pink">Pink</option><option value="custom">Custom…</option></select>
       <input type="color" id="pdf-start-custom" value="#2e9d47" style="width:44px;height:36px;padding:0;">
+      <span style="font-weight:bold;">Cross-track flag</span>
+      <select id="pdf-cross-col" style="font-size:16px;min-height:36px;"><option value="std">Standard (as now)</option><option value="white">White</option><option value="green">Green</option><option value="orange">Orange</option><option value="blue">Blue</option><option value="pink">Pink</option><option value="custom">Custom…</option></select>
+      <input type="color" id="pdf-cross-custom" value="#00bcd4" style="width:44px;height:36px;padding:0;">
     </div>
     <div style="margin-top:10px; display:flex; gap:8px; justify-content:flex-end;">
       <button id="pdf-cancel" type="button">Cancel</button>
@@ -1664,8 +1667,18 @@ function drawFullMap(pw, ph) {
       else labelBoxes.push({x: p.x + dn / ky, y: p.y - l / kx, w: (u - dn) / ky, h: (l + r) / kx}); };
     if (K.flags) points.forEach((p, idx) => { if (p.fo && idx < points.length - 1) keep(p, lft, rgt, up, 8); });
     if (window.__endPt && points.length > 1) {
-      if (K.flags) keep(points[points.length - 1], lft, rgt * 1.15, up * 1.2, 8); // V94_PDF_FINISH_UPRIGHT: keep labels off the upright finish sticks
-      else { const E = K.E; keep(points[points.length - 1], E * 0.85, E * 0.85, E * 0.85, -E * 0.85); } } }
+      if (K.flags) { const Fu = (K.F || K.S * 1.5) * 1.05; keep(points[points.length - 1], lft * 1.5, rgt * 1.5 * 1.15, Fu, 8); } // V95_PDF_FINISH_SIZE15: keep-out matches 12 mm finish sticks
+      else { const E = K.E; keep(points[points.length - 1], E * 0.85, E * 0.85, E * 0.85, -E * 0.85); } }
+    if (K.flags) { // V95_PDF_ISO_CROSSTRACK: keep labels off the 6 mm upright CT pennants
+      const CS = (K.C || K.S * 0.75) * 1.05, cl = CS * 0.3, cr = CS * 0.7;
+      points.forEach((p, idx) => { if (!p.cross) return;
+        const atF = !!p.cross.atFlag;
+        const mx = atF || p.midX === undefined ? p.x : p.midX, my = atF || p.midY === undefined ? p.y : p.midY;
+        const prev = points[Math.max(0, idx-1)] || p, nxt = points[idx+1];
+        let ang = Math.atan2(p.y - prev.y, p.x - prev.x) + Math.PI/2;
+        if (atF && nxt && prev !== p) { const a1 = Math.atan2(p.y - prev.y, p.x - prev.x), a2 = Math.atan2(nxt.y - p.y, nxt.x - p.x); ang = Math.atan2(Math.sin(a1) + Math.sin(a2), Math.cos(a1) + Math.cos(a2)) + Math.PI/2; }
+        const CTH = Math.max(30 * fmScale, 36 / mapScale), ex = Math.cos(ang)*CTH, ey = Math.sin(ang)*CTH;
+        [0, 0.25, 0.75, 1].forEach(t => keep({x: mx + ex - 2*ex*t, y: my + ey - 2*ey*t}, cl, cr, CS, 6)); }); } }
   window.__lineSegs = []; // V871_LABEL_CLEAR: drawn lines, for the label checks
   const L0 = legs[0], LN = legs[legs.length - 1];
   points.forEach((p, k) => {
@@ -2579,7 +2592,7 @@ function highlightSwipe(g, cx, cy, R, seed, opt) {
 // V89_END_FLAG_CHEQUERED: two crossed chequered (finish) flags at the END FLAG, fixed paper size S page px tall,
 // the poles crossing just above the end point; turned with the map (rot) so it stands upright when the map is read
 const END_FLAG_S_MM = 10.8;
-const PDF_TILT = 0.6, PDF_STICK_MM = 8; // V93_PDF_ISO_PENNANTS: ground squashed to 60 % height (about 37 deg view); flag sticks ~8 mm on paper // symbol scale: ~11 mm tall overall on paper (pole feet to flag tops)
+const PDF_TILT = 0.6, PDF_STICK_MM = 8, PDF_FINISH_STICK_MM = 12, PDF_CT_STICK_MM = 6; // V93: ground 60 % height; V95: corner 8 mm, finish 12 mm (1.5x), cross-track 6 mm (0.75x)
 // V94_PDF_FINISH_UPRIGHT: crossed chequered finish flags on upright sticks, planted at the ground point B [page x, y].
 // darkCol is the flag-palette colour in Colour mode (black if unset or white); Monochrome stays black/white. Never rotated with the last leg.
 function drawFinishUpright(g, B, S, darkCol) {
@@ -2644,8 +2657,9 @@ function makeTrackPdf(info) {
   const pview = PDF_VIEWS.includes(info.view) ? info.view : pdfViewMode(), tilt = pview !== 'flat'; window.lastPdfView = pview; // V93_PDF_ISO_PENNANTS
   const vdirRaw = info.viewDir !== undefined ? info.viewDir : pdfViewDir(), vdir = tilt && PDF_VDIRS.includes(vdirRaw) ? vdirRaw : 'default';
   window.lastPdfViewDir = vdir; window.__pdfViewDir = (tilt && vdir !== 'default') ? vdir : null; // V93_PDF_ISO_VIEWDIR: along/left/right rotate the ground before tilt; Page default keeps the old output
-  const land = false, rot = (tilt && vdir !== 'default') ? false : ext[0] > ext[1]; // directed views: no extra 90° turn (the heading is the view)
-  window.lastPdfOrient = {land, rot, w: ext[0], h: ext[1]};
+  const land = false; let rot = (tilt && vdir !== 'default') ? false : ext[0] > ext[1]; // directed views: no extra 90° turn (the heading is the view)
+  const defaultRot = rot; // V95_PDF_ISO_AUTOFIT: 'current default orientation' (map turned 90° when the along-heading track is wider than tall)
+  window.lastPdfOrient = {land, rot, w: ext[0], h: ext[1]}; window.lastPdfAutofit = null;
   const PW = land ? 1754 : 1240, PH = land ? 1240 : 1754; // A4 @150dpi
   const pc = document.createElement('canvas'); pc.width = PW; pc.height = PH;
   const g = pc.getContext('2d');
@@ -2706,29 +2720,58 @@ function makeTrackPdf(info) {
   const IW = PW - 2 * M - 12, IH0 = PH - MY - M - 12 - legendH;
   // V93_PDF_ISO_PENNANTS: Tilted views squash the whole ground layer (map, text, rings, swipes) by TILT in page height, one
   // transform; HR = headroom above it for the flag sticks. Flat: IH = IH0 and nothing below changes.
-  const TILT = PDF_TILT, HR = tilt ? Math.round(PDF_STICK_MM * 150 / 25.4 * 1.2) : 0;
+  const TILT = PDF_TILT, HR = tilt ? Math.round((pview === 'tiltflags' ? PDF_FINISH_STICK_MM : PDF_STICK_MM) * 150 / 25.4 * 1.2) : 0; // V95: tiltflags reserves 12 mm finish-stick headroom
   const IH = tilt ? Math.round((IH0 - HR) / TILT) : IH0;
   const tY = y => tilt ? MY + 6 + HR + (y - (MY + 6)) * TILT : y; // ground (untilted page) y -> page y
   // v8.1 PDF_FIT_LANDSCAPE: draw at a finer resolution (text ~1.8x on paper instead of ~2.4x) and fit the whole drawing,
   // labels included, into the map box: grow the track to use the space, shrink it if any label would run off the page
-  const BW = rot ? IH : IW, BH = rot ? IW : IH; // map drawn in its own (landscape when rotated) frame, then turned into the box
-  const MW = Math.round(BW / 1.8), MH = Math.round(MW * BH / BW), PAD = 6;
+  let BW = rot ? IH : IW, BH = rot ? IW : IH; // map drawn in its own (landscape when rotated) frame, then turned into the box
+  let MW = Math.round(BW / 1.8), MH = Math.round(MW * BH / BW); const PAD = 6;
   window.pdfMmPx = 150 / 25.4 * MW / BW; // map px per printed mm (ARROW_HEAD_3TO1)
   const measure = () => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     labelBoxes.forEach(b => { x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); });
     return {x0, y0, x1, y1, X0: x0 * mapScale + mapTx, Y0: y0 * mapScale + mapTy, X1: x1 * mapScale + mapTx, Y1: y1 * mapScale + mapTy}; };
-  let fitM = null;
-  window.__pdfStickKeep = tilt ? {k: (rot ? IH : IW) / MW, tilt: TILT, S: PDF_STICK_MM * 150 / 25.4, E: END_FLAG_S_MM * 150 / 25.4, rot, flags: pview === 'tiltflags'} : null; // V93
-  for (let it = 0; it < 10; it++) {
-    drawFullMap(MW, MH); fitM = measure();
-    const k = Math.min((MW - 2 * PAD) / (fitM.X1 - fitM.X0 || 1), (MH - 2 * PAD) / (fitM.Y1 - fitM.Y0 || 1));
-    const inside = fitM.X0 >= PAD - 0.5 && fitM.Y0 >= PAD - 0.5 && fitM.X1 <= MW - PAD + 0.5 && fitM.Y1 <= MH - PAD + 0.5;
-    if (inside && (k < 1.04 || mapScale >= 2.5)) break;
-    const ns = Math.max(0.25, Math.min(2.5, mapScale * (k > 1 ? Math.pow(k, 0.85) : k * 0.97)));
-    mapScale = ns; mapTx = MW / 2 - (fitM.x0 + fitM.x1) / 2 * ns; mapTy = MH / 2 - (fitM.y0 + fitM.y1) / 2 * ns;
-    if (it === 9) { drawFullMap(MW, MH); fitM = measure(); }
+  const stickKeep = (r, mw) => tilt ? {k: (r ? IH : IW) / mw, tilt: TILT, S: PDF_STICK_MM * 150 / 25.4, F: PDF_FINISH_STICK_MM * 150 / 25.4, C: PDF_CT_STICK_MM * 150 / 25.4, E: END_FLAG_S_MM * 150 / 25.4, rot: r, flags: pview === 'tiltflags'} : null;
+  const runFit = (mw, mh) => { // fit labels + track into the map canvas; returns the last measure
+    mapScale = 1; mapTx = 0; mapTy = 0; let fitM = null;
+    for (let it = 0; it < 10; it++) {
+      drawFullMap(mw, mh); fitM = measure();
+      const k = Math.min((mw - 2 * PAD) / (fitM.X1 - fitM.X0 || 1), (mh - 2 * PAD) / (fitM.Y1 - fitM.Y0 || 1));
+      const inside = fitM.X0 >= PAD - 0.5 && fitM.Y0 >= PAD - 0.5 && fitM.X1 <= mw - PAD + 0.5 && fitM.Y1 <= mh - PAD + 0.5;
+      if (inside && (k < 1.04 || mapScale >= 2.5)) break;
+      const ns = Math.max(0.25, Math.min(2.5, mapScale * (k > 1 ? Math.pow(k, 0.85) : k * 0.97)));
+      mapScale = ns; mapTx = mw / 2 - (fitM.x0 + fitM.x1) / 2 * ns; mapTy = mh / 2 - (fitM.y0 + fitM.y1) / 2 * ns;
+      if (it === 9) { drawFullMap(mw, mh); fitM = measure(); }
+    }
+    return fitM; };
+  if (tilt && vdir === 'default') { // V95_PDF_ISO_AUTOFIT: Page default tries 45° L/R × portrait/landscape; largest printed scale wins
+    const trials = [];
+    const savedDir = window.__pdfViewDir;
+    ['left45', 'right45'].forEach(dir => { [false, true].forEach(r => {
+      const bw = r ? IH : IW, bh = r ? IW : IH, mw = Math.round(bw / 1.8), mh = Math.round(mw * bh / bw);
+      window.pdfMmPx = 150 / 25.4 * mw / bw; window.__pdfViewDir = dir; window.__pdfStickKeep = stickKeep(r, mw);
+      const fitM = runFit(mw, mh);
+      const kPg = (r ? IH : IW) / mw, mp = window.__mapPts || [];
+      const scale = (mp[0] && mp[1]) ? Math.hypot(mp[1].x - mp[0].x, mp[1].y - mp[0].y) * mapScale * kPg : 0;
+      trials.push({dir, rot: r, orient: r ? 'landscape' : 'portrait', scale, mw, mh, bw, bh});
+    }); });
+    window.__pdfViewDir = savedDir;
+    // pick the largest scale; on a tie (within 0.5 %) prefer the current default orientation, then 45° left
+    let best = trials[0];
+    trials.forEach(t => {
+      const better = t.scale > best.scale * 1.005, tie = Math.abs(t.scale - best.scale) <= best.scale * 0.005 || best.scale === 0;
+      if (better || (tie && t.rot === defaultRot && best.rot !== defaultRot) || (tie && t.rot === best.rot && t.dir === 'left45' && best.dir !== 'left45')) best = t;
+    });
+    rot = best.rot; window.__pdfViewDir = best.dir;
+    const note = 'Auto: ' + (best.dir === 'left45' ? '45° left' : '45° right') + ' · ' + best.orient;
+    window.lastPdfAutofit = {dir: best.dir, rot: best.rot, orient: best.orient, scale: best.scale, defaultRot, note, trials: trials.map(t => ({dir: t.dir, rot: t.rot, orient: t.orient, scale: +t.scale.toFixed(4)}))};
+    window.lastPdfOrient = {land, rot, w: ext[0], h: ext[1], autofit: true};
+    BW = rot ? IH : IW; BH = rot ? IW : IH; MW = Math.round(BW / 1.8); MH = Math.round(MW * BH / BW);
   }
-  window.lastPdfFit = {land, rot, BW, BH, IW, IH, MW, MH, PAD, X0: fitM.X0, Y0: fitM.Y0, X1: fitM.X1, Y1: fitM.Y1, scale: mapScale};
+  window.pdfMmPx = 150 / 25.4 * MW / BW;
+  window.__pdfStickKeep = stickKeep(rot, MW);
+  let fitM = runFit(MW, MH);
+  window.lastPdfFit = {land, rot, BW, BH, IW, IH, MW, MH, PAD, X0: fitM.X0, Y0: fitM.Y0, X1: fitM.X1, Y1: fitM.Y1, scale: mapScale, autofit: window.lastPdfAutofit};
   const img = fctx.getImageData(0, 0, MW, MH), d = img.data;
   if (cmode === 'colour') { // V89_PDF_COLOUR_MODE: grey = black ink as before; pure R/G/B keys = ring / start / track inks
     const K = [PDF_INK.ring, PDF_INK.start, PDF_INK.track];
@@ -2771,7 +2814,7 @@ function makeTrackPdf(info) {
   const flagPts = mp.map((p, idx) => ({p, idx})).filter(o => o.p.fo && o.idx < mp.length - 1); // every flag except the end (chequered flags)
   const fCol = cmode === 'colour' ? pdfColHex(info.flagCol !== undefined ? info.flagCol : pdfFlagSetting(PDF_FLAG_KEY)) : null; // V93_PDF_FLAG_PALETTE: Colour PDF only
   const sCol = cmode === 'colour' ? pdfColHex(info.startCol !== undefined ? info.startCol : pdfFlagSetting(PDF_START_KEY)) : null;
-  window.lastPdfFlagCols = {flag: fCol, start: sCol, mode: cmode};
+  window.lastPdfFlagCols = {flag: fCol, start: sCol, cross: cmode === 'colour' ? pdfColHex(info.crossCol !== undefined ? info.crossCol : pdfFlagSetting(PDF_CROSS_KEY)) : null, mode: cmode};
   if (fCol || sCol) { // the chosen colour over the flag dot (same size, thin dark rim so white shows on white paper); ground layer
     g.save(); g.lineWidth = 1.6; g.strokeStyle = '#222';
     const ringAt = new Set((artRings || []).filter(z => z.atFlag).map(z => z.p)); // an article ring at the flag covers the dot: leave the ring alone
@@ -2795,12 +2838,26 @@ function makeTrackPdf(info) {
       g.fillStyle = k.col; g.strokeStyle = '#222'; g.lineWidth = 1.4; g.lineJoin = 'round';
       g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(tip[0], tip[1]); g.lineTo(Bt[0], Bt[1]); g.closePath(); g.fill(); g.stroke();
       g.fillStyle = '#333'; g.beginPath(); g.arc(T[0], T[1], 2.2, 0, Math.PI * 2); g.fill(); g.restore();
-      window.lastPdfSticks.push(k); }); }
+      window.lastPdfSticks.push(k); });
+    // V95_PDF_ISO_CROSSTRACK: 6 mm upright pennants at the four CT flag positions (ends + 1/4 + 3/4); not mixed into lastPdfSticks
+    const CS = PDF_CT_STICK_MM * 150 / 25.4, xCol = cmode === 'colour' ? pdfColHex(info.crossCol !== undefined ? info.crossCol : pdfFlagSetting(PDF_CROSS_KEY)) : null;
+    const xStd = xCol || (cmode === 'colour' ? '#0a6e80' : '#ffffff');
+    window.lastPdfFlagCols.cross = xCol; window.lastPdfCtSticks = [];
+    const ctPts = []; (ctSegs || []).forEach(seg => { [0, 0.25, 0.75, 1].forEach(t => ctPts.push({x: seg.x1 + (seg.x2 - seg.x1) * t, y: seg.y1 + (seg.y2 - seg.y1) * t})); });
+    const ctSticks = ctPts.map(p => { const v = vPage(p.x, p.y), B = [v[0], tY(v[1])]; return {B, T: [B[0], B[1] - CS], col: xStd, S: CS}; }).sort((a, b) => a.B[1] - b.B[1]);
+    ctSticks.forEach(k => { const {B, T} = k, dx = T[0] - B[0], dy = T[1] - B[1];
+      g.save(); g.lineCap = 'round'; g.strokeStyle = '#333'; g.lineWidth = 2.0; g.beginPath(); g.moveTo(B[0], B[1]); g.lineTo(T[0], T[1]); g.stroke();
+      const A = [T[0] + dx * 0.02, T[1] + dy * 0.02], Bt = [T[0] - dx * 0.4, T[1] - dy * 0.4], tip = [(A[0] + Bt[0]) / 2 + CS * 0.62, (A[1] + Bt[1]) / 2 + CS * 0.03];
+      g.fillStyle = k.col; g.strokeStyle = '#222'; g.lineWidth = 1.2; g.lineJoin = 'round';
+      g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(tip[0], tip[1]); g.lineTo(Bt[0], Bt[1]); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#333'; g.beginPath(); g.arc(T[0], T[1], 1.7, 0, Math.PI * 2); g.fill(); g.restore();
+      window.lastPdfCtSticks.push(k); });
+  } else { window.lastPdfCtSticks = []; }
   window.lastPdfEndFlag = null; window.lastPdfFinishUpright = null;
   if (pview === 'tiltflags' && window.__endPt) { // V94_PDF_FINISH_UPRIGHT: Tilted + flags — crossed finish flags on upright sticks, palette colour, not rotated with the last leg
     const ev = vPage(window.__endPt.x, window.__endPt.y), B = [ev[0], tY(ev[1])];
     const dark = (cmode === 'colour' && fCol) ? fCol : '#000000';
-    window.lastPdfFinishUpright = drawFinishUpright(g, B, PDF_STICK_MM * 150 / 25.4, dark);
+    window.lastPdfFinishUpright = drawFinishUpright(g, B, PDF_FINISH_STICK_MM * 150 / 25.4, dark); // V95_PDF_FINISH_SIZE15: 12 mm sticks, 1.5x the corner pennants
   } else if (window.__endPt) { // Flat, and Tilted with no flags: the existing ground-level chequered symbol (unchanged)
     const X = window.__endPt.x * mapScale + mapTx, Y = window.__endPt.y * mapScale + mapTy;
     const ep = rot ? [M + 6 + Y * IW / MH, MY + 6 + IH - X * IH / MW] : [M + 6 + X * IW / MW, MY + 6 + Y * IH / MH];
@@ -2815,8 +2872,11 @@ function makeTrackPdf(info) {
     g.fillText('Free version – donation to the tracking club unlocks full', PW - M, PH - 12); g.restore();
   }
   { const ft = pdfFooterText(); window.lastPdfFooter = ft; // V87_LICENCE: small grey footer (licence, version, copyright)
-    g.save(); g.font = '14px sans-serif'; g.fillStyle = '#9a9a9a'; g.textAlign = 'left';
-    const maxW = isUnlocked() ? PW - 2 * M : PW / 2 - M - 10; let t = ft;
+    const autoN = window.lastPdfAutofit && window.lastPdfAutofit.note; // V95_PDF_ISO_AUTOFIT: unobtrusive 'Auto: 45° left · portrait'
+    g.save(); g.font = '14px sans-serif'; g.fillStyle = '#9a9a9a';
+    if (autoN) { g.textAlign = 'right'; g.fillText(autoN, PW - M, isUnlocked() ? PH - 12 : PH - 28); }
+    g.textAlign = 'left';
+    const maxW = isUnlocked() ? (autoN ? PW - 2 * M - g.measureText(autoN).width - 16 : PW - 2 * M) : PW / 2 - M - 10; let t = ft;
     while (g.measureText(t).width > maxW && t.length > 10) t = t.slice(0, -2);
     g.fillText(t === ft ? t : t + '…', M, PH - 12); g.restore(); }
   [mapScale, mapTx, mapTy] = sv; printMode = false; pdfColourPrint = false; window.__pdfStickKeep = null; window.__pdfViewDir = null;
@@ -2866,7 +2926,7 @@ function pdfViewDir() { try { const v = localStorage.getItem(PDF_VDIR_KEY); retu
 function setPdfViewDir(v) { try { localStorage.setItem(PDF_VDIR_KEY, PDF_VDIRS.includes(v) ? v : 'default'); } catch (e) {} }
 function pdfViewDirFromForm() { const s = document.getElementById('pdf-viewdir'); return s && PDF_VDIRS.includes(s.value) ? s.value : 'default'; }
 // V93_PDF_FLAG_PALETTE: Colour PDF flag colour + separate start flag colour; 'std' = as before (black flags, green start)
-const PDF_FLAG_KEY = 'pdf-flag-col', PDF_START_KEY = 'pdf-start-col';
+const PDF_FLAG_KEY = 'pdf-flag-col', PDF_START_KEY = 'pdf-start-col', PDF_CROSS_KEY = 'pdf-cross-col'; // V95_PDF_ISO_CROSSTRACK
 const PDF_FLAG_PRESETS = {white: '#ffffff', green: '#2e9d47', orange: '#ff8a1f', blue: '#2f6fd6', pink: '#ff6fb5'};
 const pdfColOk = v => v === 'std' || !!PDF_FLAG_PRESETS[v] || /^#[0-9a-f]{6}$/i.test(v || '');
 function pdfFlagSetting(key) { try { const v = localStorage.getItem(key); return pdfColOk(v) ? v : 'std'; } catch (e) { return 'std'; } }
@@ -2878,13 +2938,13 @@ function pdfFlagColToForm(v, sel, inp) { const s = document.getElementById(sel),
 function pdfFormShow() { const mono = pdfColourFromForm() === 'mono', r = document.getElementById('pdf-flagcol-row'); if (r) r.style.display = mono ? 'none' : 'grid';
   document.querySelectorAll('#pdf-view-row .pdf-vw').forEach(l => { const on = l.querySelector('input').checked; l.style.borderColor = on ? '#ffeb3b' : '#888'; l.style.background = on ? 'rgba(255,235,59,0.15)' : 'transparent'; });
   const vd = document.getElementById('pdf-viewdir-row'); if (vd) vd.style.display = pdfViewFromForm() !== 'flat' ? 'block' : 'none'; // V93_PDF_ISO_VIEWDIR
-  [['pdf-flag-col', 'pdf-flag-custom'], ['pdf-start-col', 'pdf-start-custom']].forEach(([a, b]) => { const s = document.getElementById(a), c = document.getElementById(b); if (s && c) c.style.visibility = s.value === 'custom' ? 'visible' : 'hidden'; }); }
+  [['pdf-flag-col', 'pdf-flag-custom'], ['pdf-start-col', 'pdf-start-custom'], ['pdf-cross-col', 'pdf-cross-custom']].forEach(([a, b]) => { const s = document.getElementById(a), c = document.getElementById(b); if (s && c) c.style.visibility = s.value === 'custom' ? 'visible' : 'hidden'; }); }
 document.querySelectorAll('#pdf-colour-row input, #pdf-view-row input, #pdf-flagcol-row select').forEach(r => r.addEventListener('change', pdfFormShow));
 document.getElementById('pdf-btn').onclick = () => {
   if (!trackDone) return alert('Finish the track first');
   { const m = pdfColourMode(); document.getElementById('pdf-colour-colour').checked = m === 'colour'; document.getElementById('pdf-colour-mono').checked = m === 'mono'; pdfCmShow(); }
   { const v = pdfViewMode(); PDF_VIEWS.forEach(k => { const r = document.getElementById('pdf-view-' + k); if (r) r.checked = k === v; }); // V93
-    pdfFlagColToForm(pdfFlagSetting(PDF_FLAG_KEY), 'pdf-flag-col', 'pdf-flag-custom'); pdfFlagColToForm(pdfFlagSetting(PDF_START_KEY), 'pdf-start-col', 'pdf-start-custom');
+    pdfFlagColToForm(pdfFlagSetting(PDF_FLAG_KEY), 'pdf-flag-col', 'pdf-flag-custom'); pdfFlagColToForm(pdfFlagSetting(PDF_START_KEY), 'pdf-start-col', 'pdf-start-custom'); pdfFlagColToForm(pdfFlagSetting(PDF_CROSS_KEY), 'pdf-cross-col', 'pdf-cross-custom');
     { const s = document.getElementById('pdf-viewdir'); if (s) s.value = pdfViewDir(); } pdfFormShow(); }
   ['dog','comp','judge','steward'].forEach(k => { document.getElementById('pdf-' + k).value = localStorage.getItem('pdf-' + k) || ''; });
   const dt = document.getElementById('pdf-date'); if (!dt.value) dt.value = new Date().toISOString().slice(0, 10);
@@ -2892,7 +2952,7 @@ document.getElementById('pdf-btn').onclick = () => {
 };
 // V871_MENU_PDF: Menu > PDF (only after the track has passed Finish). Unchanged since the last PDF -> straight to View/Send.
 // Edited since Finish -> the Finish checks run again; if they pass, the PDF is rebuilt from the current track.
-function pdfTrackSig() { return JSON.stringify({level, legs, hideDesc, lic: licenseText(), cm: pdfColourMode(), vw: pdfViewMode(), vd: pdfViewDir(), fc: pdfFlagSetting(PDF_FLAG_KEY), sc: pdfFlagSetting(PDF_START_KEY)}); } // V93: view + viewdir + flag colours
+function pdfTrackSig() { return JSON.stringify({level, legs, hideDesc, lic: licenseText(), cm: pdfColourMode(), vw: pdfViewMode(), vd: pdfViewDir(), fc: pdfFlagSetting(PDF_FLAG_KEY), sc: pdfFlagSetting(PDF_START_KEY), xc: pdfFlagSetting(PDF_CROSS_KEY)}); } // V93 + V95 cross colour
 function menuPdf() {
   if (!finishedOnce) return alert('Finish the track first');
   if (!trackDone) {
@@ -2917,6 +2977,7 @@ document.getElementById('pdf-make').onclick = async () => {
   info.viewDir = pdfViewDirFromForm(); setPdfViewDir(info.viewDir); // V93_PDF_ISO_VIEWDIR
   info.flagCol = pdfFlagColFromForm('pdf-flag-col', 'pdf-flag-custom'); setPdfFlagSetting(PDF_FLAG_KEY, info.flagCol); // V93_PDF_FLAG_PALETTE
   info.startCol = pdfFlagColFromForm('pdf-start-col', 'pdf-start-custom'); setPdfFlagSetting(PDF_START_KEY, info.startCol);
+  info.crossCol = pdfFlagColFromForm('pdf-cross-col', 'pdf-cross-custom'); setPdfFlagSetting(PDF_CROSS_KEY, info.crossCol); // V95_PDF_ISO_CROSSTRACK
   document.getElementById('pdf-modal').classList.remove('show');
   const blob = makeTrackPdf(info);
   const name = 'Tracking-TD' + level + (info.dog ? '-' + info.dog.replace(/[^\w-]+/g, '_') : '') + (dv ? '-' + dv : '') + '.pdf';
@@ -3131,7 +3192,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '9.4';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '9.5';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
