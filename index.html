@@ -227,7 +227,7 @@ html.day .lic-about a { color:#0B5560; }
 <body>
 <div id="start-page" style="position:fixed;inset:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;">
   <h1 style="color:#ffeb3b;margin-bottom:4px;">Tracking</h1>
-  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v9.3 · © All Breeds Tracking Club</div>
+  <div id="start-ver" style="font-size:13px;color:#aaa;margin-bottom:14px;">v9.4 · © All Breeds Tracking Club</div>
   <button id="start-badge" type="button" style="font-size:13px;padding:6px 12px;margin-bottom:12px;"></button>
   <p style="margin-bottom:16px;">Select track level</p>
   <select id="start-level" style="font-size:20px;padding:12px;margin-bottom:20px;">
@@ -321,7 +321,7 @@ html.day .lic-about a { color:#0B5560; }
 </div>
 <div id="about-modal" class="modal" style="z-index:460;"><!-- V87_LICENCE: Menu > About -->
   <div class="modal-content">
-    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v9.3</h3>
+    <h3 style="color:#ffeb3b;margin-top:0;">Tracking v9.4</h3>
     <div id="about-lic" style="font-size:14px;"></div>
     <div class="lic-about">© All Breeds Tracking Club.<br>Unlock codes: email the secretary at <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20unlock%20code">trackingapp.zrphg@simplelogin.com</a><br>Suggestions: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Tracking%20app%20suggestion">trackingapp.zrphg@simplelogin.com</a><br>Donations to the club equipment fund: <a href="mailto:trackingapp.zrphg@simplelogin.com?subject=Club%20equipment%20fund%20donation">contact us</a></div>
     <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button id="about-close" type="button">Close</button></div>
@@ -381,6 +381,8 @@ html.day .lic-about a { color:#0B5560; }
         <select id="pdf-viewdir" style="width:100%;font-size:16px;min-height:36px;">
           <option value="default">Page default</option>
           <option value="along">Along first leg</option>
+          <option value="left45">From 45° left of first leg</option>
+          <option value="right45">From 45° right of first leg</option>
           <option value="left">From left of first leg</option>
           <option value="right">From right of first leg</option>
         </select>
@@ -1594,6 +1596,8 @@ function drawFullMap(pw, ph) {
   let points = [];
   let x = w/2, y = h - 40;
   let heading = -Math.PI/2; // default / along: leg 1 goes up the page (away from the viewer at the bottom)
+  if (printMode && window.__pdfViewDir === 'left45') heading = -3 * Math.PI / 4; // V94_PDF_ISO_VIEW45: 45° left of along — leg 1 goes up and to the left
+  if (printMode && window.__pdfViewDir === 'right45') heading = -Math.PI / 4; // 45° right of along — leg 1 goes up and to the right
   if (printMode && window.__pdfViewDir === 'left') heading = Math.PI; // V93_PDF_ISO_VIEWDIR: from the left of leg 1, travel goes right-to-left
   if (printMode && window.__pdfViewDir === 'right') heading = 0; // from the right of leg 1, travel goes left-to-right
   const st0 = legs[0] && legs[0].flags[0] && legs[0].flags[0].isStart ? legs[0].flags[0] : null;
@@ -1659,7 +1663,9 @@ function drawFullMap(pw, ph) {
     const keep = (p, l, r, u, dn) => { if (!K.rot) labelBoxes.push({x: p.x - l / kx, y: p.y - u / ky, w: (l + r) / kx, h: (u - dn) / ky});
       else labelBoxes.push({x: p.x + dn / ky, y: p.y - l / kx, w: (u - dn) / ky, h: (l + r) / kx}); };
     if (K.flags) points.forEach((p, idx) => { if (p.fo && idx < points.length - 1) keep(p, lft, rgt, up, 8); });
-    if (window.__endPt && points.length > 1) { const E = K.E; keep(points[points.length - 1], E * 0.85, E * 0.85, E * 0.85, -E * 0.85); } }
+    if (window.__endPt && points.length > 1) {
+      if (K.flags) keep(points[points.length - 1], lft, rgt * 1.15, up * 1.2, 8); // V94_PDF_FINISH_UPRIGHT: keep labels off the upright finish sticks
+      else { const E = K.E; keep(points[points.length - 1], E * 0.85, E * 0.85, E * 0.85, -E * 0.85); } } }
   window.__lineSegs = []; // V871_LABEL_CLEAR: drawn lines, for the label checks
   const L0 = legs[0], LN = legs[legs.length - 1];
   points.forEach((p, k) => {
@@ -2574,6 +2580,30 @@ function highlightSwipe(g, cx, cy, R, seed, opt) {
 // the poles crossing just above the end point; turned with the map (rot) so it stands upright when the map is read
 const END_FLAG_S_MM = 10.8;
 const PDF_TILT = 0.6, PDF_STICK_MM = 8; // V93_PDF_ISO_PENNANTS: ground squashed to 60 % height (about 37 deg view); flag sticks ~8 mm on paper // symbol scale: ~11 mm tall overall on paper (pole feet to flag tops)
+// V94_PDF_FINISH_UPRIGHT: crossed chequered finish flags on upright sticks, planted at the ground point B [page x, y].
+// darkCol is the flag-palette colour in Colour mode (black if unset or white); Monochrome stays black/white. Never rotated with the last leg.
+function drawFinishUpright(g, B, S, darkCol) {
+  const dark = (darkCol && String(darkCol).toLowerCase() !== '#ffffff') ? darkCol : '#000';
+  const lean = 0.22 * S, lw = Math.max(1.5, 0.055 * S);
+  const poles = [-1, 1].map(sx => ({bx: B[0] + sx * lean * 0.12, by: B[1], tx: B[0] + sx * lean, ty: B[1] - S, sx}));
+  const flag = (P) => {
+    const W = 0.5 * S, H = 0.36 * S, NX = 4, NY = 3, ux = P.sx, wav = 0.05 * S;
+    const pt = (u, v) => [P.tx + ux * u * W, P.ty + v * H + Math.sin(u * Math.PI * 1.6) * wav + u * 0.06 * S];
+    for (let i = 0; i < NX; i++) for (let j = 0; j < NY; j++) {
+      const a = pt(i / NX, j / NY), b = pt((i + 1) / NX, j / NY), c = pt((i + 1) / NX, (j + 1) / NY), d = pt(i / NX, (j + 1) / NY);
+      g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath();
+      g.fillStyle = (i + j) % 2 ? '#fff' : dark; g.fill(); }
+    g.beginPath(); for (let k = 0; k <= 12; k++) { const p = pt(k / 12, 0); k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }
+    for (let k = 0; k <= 12; k++) { const p = pt(1, k / 12); g.lineTo(p[0], p[1]); }
+    for (let k = 12; k >= 0; k--) { const p = pt(k / 12, 1); g.lineTo(p[0], p[1]); }
+    g.closePath(); g.strokeStyle = '#222'; g.lineWidth = Math.max(1, 0.025 * S); g.stroke(); };
+  g.save(); poles.forEach(P => flag(P));
+  g.lineCap = 'round'; g.strokeStyle = '#333'; g.lineWidth = lw;
+  poles.forEach(P => { g.beginPath(); g.moveTo(P.bx, P.by); g.lineTo(P.tx, P.ty); g.stroke();
+    g.beginPath(); g.arc(P.tx, P.ty, lw * 0.9, 0, Math.PI * 2); g.fillStyle = '#333'; g.fill(); });
+  g.restore();
+  return {B: [B[0], B[1]], T: poles.map(P => [P.tx, P.ty]), S, col: dark, upright: true};
+}
 function drawEndFlag(g, x, y, S, rot, ang) {
   g.save(); g.translate(x, y); if (ang != null) g.rotate(ang); else if (rot) g.rotate(-Math.PI / 2); // poles cross exactly on the end point; V90: 'up' along the direction of travel
   const poleCol = '#333', lw = Math.max(1.5, 0.055 * S);
@@ -2737,7 +2767,7 @@ function makeTrackPdf(info) {
     if (rot) { const u = X * IH / MW, v = Y * IW / MH; return [M + 6 + v, MY + 6 + IH - u]; }
     return [M + 6 + X * IW / MW, MY + 6 + Y * IH / MH]; };
   const kPg = (rot ? IH : IW) / MW, mp = window.__mapPts || [];
-  window.lastPdfLeg1 = (mp[0] && mp[1]) ? (() => { const A = vPage(mp[0].x, mp[0].y), B = vPage(mp[1].x, mp[1].y); return {sx: A[0], sy: tY(A[1]), x: B[0], y: tY(B[1])}; })() : null;
+  window.lastPdfLeg1 = (mp[0] && mp[1]) ? (() => { const A = vPage(mp[0].x, mp[0].y), B = vPage(mp[1].x, mp[1].y); return {sx: A[0], sy: tY(A[1]), x: B[0], y: tY(B[1]), ax: A[0], ay: A[1], bx: B[0], by: B[1]}; })() : null;
   const flagPts = mp.map((p, idx) => ({p, idx})).filter(o => o.p.fo && o.idx < mp.length - 1); // every flag except the end (chequered flags)
   const fCol = cmode === 'colour' ? pdfColHex(info.flagCol !== undefined ? info.flagCol : pdfFlagSetting(PDF_FLAG_KEY)) : null; // V93_PDF_FLAG_PALETTE: Colour PDF only
   const sCol = cmode === 'colour' ? pdfColHex(info.startCol !== undefined ? info.startCol : pdfFlagSetting(PDF_START_KEY)) : null;
@@ -2766,10 +2796,15 @@ function makeTrackPdf(info) {
       g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(tip[0], tip[1]); g.lineTo(Bt[0], Bt[1]); g.closePath(); g.fill(); g.stroke();
       g.fillStyle = '#333'; g.beginPath(); g.arc(T[0], T[1], 2.2, 0, Math.PI * 2); g.fill(); g.restore();
       window.lastPdfSticks.push(k); }); }
-  window.lastPdfEndFlag = null; // V89_END_FLAG_CHEQUERED: ~11 mm tall on paper whatever the map scale, same in Colour and Monochrome
-  if (window.__endPt) { const X = window.__endPt.x * mapScale + mapTx, Y = window.__endPt.y * mapScale + mapTy;
+  window.lastPdfEndFlag = null; window.lastPdfFinishUpright = null;
+  if (pview === 'tiltflags' && window.__endPt) { // V94_PDF_FINISH_UPRIGHT: Tilted + flags — crossed finish flags on upright sticks, palette colour, not rotated with the last leg
+    const ev = vPage(window.__endPt.x, window.__endPt.y), B = [ev[0], tY(ev[1])];
+    const dark = (cmode === 'colour' && fCol) ? fCol : '#000000';
+    window.lastPdfFinishUpright = drawFinishUpright(g, B, PDF_STICK_MM * 150 / 25.4, dark);
+  } else if (window.__endPt) { // Flat, and Tilted with no flags: the existing ground-level chequered symbol (unchanged)
+    const X = window.__endPt.x * mapScale + mapTx, Y = window.__endPt.y * mapScale + mapTy;
     const ep = rot ? [M + 6 + Y * IW / MH, MY + 6 + IH - X * IH / MW] : [M + 6 + X * IW / MW, MY + 6 + Y * IH / MH];
-    if (tilt) ep[1] = tY(ep[1]); // V93: the finish flags stand upright on the tilted ground
+    if (tilt) ep[1] = tY(ep[1]); // V93: the finish flags stand on the tilted ground
     const PX = window.__endPt.px * mapScale + mapTx, PY = window.__endPt.py * mapScale + mapTy; // V90_END_FLAG_TRAVEL_DIR: previous track point on the page
     const pp = rot ? [M + 6 + PY * IW / MH, MY + 6 + IH - PX * IH / MW] : [M + 6 + PX * IW / MW, MY + 6 + PY * IH / MH];
     if (tilt) pp[1] = tY(pp[1]);
@@ -2826,7 +2861,7 @@ function pdfViewMode() { try { const v = localStorage.getItem(PDF_VIEW_KEY); ret
 function setPdfViewMode(v) { try { localStorage.setItem(PDF_VIEW_KEY, PDF_VIEWS.includes(v) ? v : 'flat'); } catch (e) {} }
 function pdfViewFromForm() { const r = document.querySelector('#pdf-view-row input:checked'); return r && PDF_VIEWS.includes(r.value) ? r.value : 'flat'; }
 // V93_PDF_ISO_VIEWDIR: tilted views only; default 'default' keeps the existing (unrotated) tilted output, including the wide-track 90° map turn
-const PDF_VDIR_KEY = 'pdf-viewdir', PDF_VDIRS = ['default', 'along', 'left', 'right'];
+const PDF_VDIR_KEY = 'pdf-viewdir', PDF_VDIRS = ['default', 'along', 'left45', 'right45', 'left', 'right']; // V94_PDF_ISO_VIEW45: 45° left/right added; 90° left/right kept
 function pdfViewDir() { try { const v = localStorage.getItem(PDF_VDIR_KEY); return PDF_VDIRS.includes(v) ? v : 'default'; } catch (e) { return 'default'; } }
 function setPdfViewDir(v) { try { localStorage.setItem(PDF_VDIR_KEY, PDF_VDIRS.includes(v) ? v : 'default'); } catch (e) {} }
 function pdfViewDirFromForm() { const s = document.getElementById('pdf-viewdir'); return s && PDF_VDIRS.includes(s.value) ? s.value : 'default'; }
@@ -3096,7 +3131,7 @@ document.getElementById('new-nosave').onclick = () => {
 //   "track":{level,legs,articlesPlaced,crossTracksPlaced,hideDesc,trackDone,t}}
 // Future versions must keep reading formatVersion 1 files.
 // v7.5 optional (still format v1): flag.lblOff / leg.lblOff = {key:[dx,dy]} moved-label offsets; absent = auto placement.
-const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '9.3';
+const TRACK_FORMAT = 'tracking-track', TRACK_FORMAT_VERSION = 1, APP_VERSION = '9.4';
 // ===== v7.7: plain-English .track file (format 2). Grammar in FILE-FORMAT.md. =====
 // Line:  Head (optional comment): name value; name value; ...
 // value: none | yes | no | number | bare word | "JSON string" | {JSON} | [JSON]
